@@ -8,13 +8,10 @@
 * { margin:0; padding:0; box-sizing:border-box; }
 body {
   font-family: 'Hiragino Kaku Gothic ProN','Noto Sans JP',sans-serif;
-  background: #f3f4f6;
-  min-height: 100vh;
-  display: flex;
-  justify-content: center;
-  padding: 20px 8px;
+  background: #f3f4f6; min-height:100vh;
+  display:flex; justify-content:center; padding:20px 8px;
 }
-#app { max-width: 540px; width: 100%; }
+#app { max-width:540px; width:100%; }
 
 .title-area { text-align:center; margin-bottom:18px; padding-bottom:14px; border-bottom:1px solid #e0e0e0; }
 .title-area h2 { font-size:18px; font-weight:700; color:#1a1a1a; margin-bottom:4px; }
@@ -27,20 +24,76 @@ body {
 #bracket-area.show { height:26px; margin-bottom:2px; }
 
 #disc-row { display:flex; justify-content:center; gap:10px; padding:10px 0 16px; border-radius:12px; transition:background .5s; }
-.disc-col { display:flex; flex-direction:column; align-items:center; gap:5px; }
+.disc-col { display:flex; flex-direction:column; align-items:center; gap:5px; perspective:300px; }
 .disc-num { font-size:11px; color:#8a8a8a; font-weight:500; }
-.disc {
-  width:54px; height:54px; border-radius:50%;
-  display:flex; align-items:center; justify-content:center;
-  font-size:16px; font-weight:700; user-select:none;
-  transition: all .4s cubic-bezier(.4,0,.2,1);
-  position:relative; z-index:1;
+
+.disc-wrapper {
+  width:54px; height:54px; position:relative;
+  transform-style:preserve-3d;
+  transition: transform .15s ease;
 }
-.disc.white { background:radial-gradient(circle at 35% 35%,#fff,#e8e8e8); border:2px solid #c0c0c0; color:#333; box-shadow:0 2px 8px rgba(0,0,0,.12); }
-.disc.black { background:radial-gradient(circle at 35% 35%,#4a4a4a,#1a1a1a); border:2px solid #333; color:#eee; box-shadow:0 2px 8px rgba(0,0,0,.2); }
-.disc.in-range-ready { border:3px solid #3b82f6!important; box-shadow:0 0 0 5px rgba(59,130,246,.15),0 0 24px rgba(59,130,246,.3)!important; transform:scale(1.12); z-index:2; }
-.disc.in-range-flipping { border:3px solid #3b82f6!important; box-shadow:0 0 16px rgba(59,130,246,.5)!important; transform:rotateY(180deg); }
-.disc.consec { border:3px solid #22c55e!important; box-shadow:0 0 12px rgba(34,197,94,.4)!important; }
+.disc-wrapper.ready-bounce { transform:scale(1.12); }
+
+.disc-face {
+  position:absolute; top:0; left:0; width:100%; height:100%;
+  border-radius:50%; display:flex; align-items:center; justify-content:center;
+  font-size:16px; font-weight:700; user-select:none;
+  backface-visibility:hidden;
+}
+.disc-face.front-white {
+  background:radial-gradient(circle at 35% 35%,#fff,#e8e8e8);
+  border:2px solid #c0c0c0; color:#333;
+  box-shadow:0 2px 8px rgba(0,0,0,.12);
+}
+.disc-face.front-black {
+  background:radial-gradient(circle at 35% 35%,#4a4a4a,#1a1a1a);
+  border:2px solid #333; color:#eee;
+  box-shadow:0 2px 8px rgba(0,0,0,.2);
+}
+.disc-face.back {
+  transform:rotateY(180deg);
+}
+.disc-face.back-white {
+  background:radial-gradient(circle at 65% 35%,#fff,#e8e8e8);
+  border:2px solid #c0c0c0; color:#333;
+  box-shadow:0 2px 8px rgba(0,0,0,.12);
+}
+.disc-face.back-black {
+  background:radial-gradient(circle at 65% 35%,#4a4a4a,#1a1a1a);
+  border:2px solid #333; color:#eee;
+  box-shadow:0 2px 8px rgba(0,0,0,.2);
+}
+
+/* Ready glow on wrapper */
+.disc-wrapper.in-range-ready .disc-face {
+  border:3px solid #3b82f6 !important;
+  box-shadow:0 0 0 5px rgba(59,130,246,.15),0 0 24px rgba(59,130,246,.3) !important;
+}
+
+/* Flip animation */
+.disc-wrapper.flipping {
+  animation: flipDisc 0.6s ease-in-out forwards;
+}
+@keyframes flipDisc {
+  0%   { transform:rotateY(0deg); }
+  100% { transform:rotateY(180deg); }
+}
+
+/* Edge thickness illusion: a pseudo-element behind */
+.disc-wrapper.flipping::after {
+  content:'';
+  position:absolute; top:2px; left:50%; width:4px; height:50px;
+  margin-left:-2px;
+  background:linear-gradient(180deg,#888,#666);
+  border-radius:2px;
+  z-index:-1;
+}
+
+/* Consecutive white highlight */
+.disc-face.consec-highlight {
+  border:3px solid #22c55e !important;
+  box-shadow:0 0 12px rgba(34,197,94,.4) !important;
+}
 
 #result-badge { text-align:center; margin:2px 0 10px; display:none; }
 #result-badge.show { display:block; animation:fadeIn .4s ease; }
@@ -65,13 +118,11 @@ body {
 
 #ab-display { text-align:center; font-size:13px; color:#555; margin-bottom:10px; display:none; }
 #ab-display b { color:#1d4ed8; }
-
 #btn-row { display:flex; justify-content:center; gap:10px; }
 #btn-flip { padding:10px 32px; border-radius:8px; border:none; background:linear-gradient(135deg,#3b82f6,#2563eb); color:#fff; font-size:15px; font-weight:700; cursor:pointer; box-shadow:0 2px 12px rgba(59,130,246,.35); animation:pulse 1.5s ease-in-out infinite; display:none; }
 #btn-record { padding:10px 20px; border-radius:8px; border:1.5px solid #3b82f6; background:#fff; color:#2563eb; font-size:14px; font-weight:600; cursor:pointer; display:none; }
 #btn-reset { padding:10px 20px; border-radius:8px; border:1.5px solid #d0d0d0; background:#fff; color:#666; font-size:14px; font-weight:600; cursor:pointer; display:none; }
 
-/* Cross table */
 .cross-table { border-collapse:collapse; margin:0 auto; }
 .cross-table th,.cross-table td { width:50px; height:38px; text-align:center; vertical-align:middle; font-size:12px; font-weight:600; }
 .cross-table th { color:#888; font-weight:500; }
@@ -85,7 +136,6 @@ body {
 .cross-table td.active-cell { background:#dbeafe; border:2px solid #3b82f6; color:#1d4ed8; }
 .cross-table td.empty-cell { background:#f9f9f9; border:none; cursor:default; color:#ddd; font-size:10px; }
 
-/* History table */
 #history-section { display:none; }
 #history-section.show { display:block; }
 .hist-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
@@ -98,9 +148,7 @@ body {
 .hist-table th { font-size:11px; color:#888; font-weight:500; padding:4px 2px 6px; border-bottom:1.5px solid #e0e0e0; }
 .hist-table td { padding:5px 2px; text-align:center; border-bottom:.5px solid #eee; vertical-align:middle; }
 .hist-table .ab-col { font-weight:700; font-size:13px; color:#444; white-space:nowrap; }
-.mini-disc {
-  display:inline-block; width:22px; height:22px; border-radius:50%; vertical-align:middle;
-}
+.mini-disc { display:inline-block; width:22px; height:22px; border-radius:50%; vertical-align:middle; }
 .mini-disc.w { background:#fff; border:1.5px solid #bbb; }
 .mini-disc.b { background:#2a2a2a; border:1.5px solid #444; }
 .mini-disc.consec-w { background:#fff; border:2px solid #22c55e; box-shadow:0 0 4px rgba(34,197,94,.3); }
@@ -127,7 +175,6 @@ body {
   <div id="bracket-area"><svg id="bracket-svg" width="384" height="24" style="overflow:visible"></svg></div>
   <div id="disc-row"></div>
   <div id="result-badge"><span></span></div>
-
   <div class="section" id="card-section">
     <div class="card-area-title">カードを2枚選ぼう<span id="card-hint"></span></div>
     <div id="card-row"></div>
@@ -138,12 +185,10 @@ body {
       <button id="btn-reset" onclick="resetAll()">リセット</button>
     </div>
   </div>
-
   <div class="section" id="quick-section">
     <div style="font-size:12px;font-weight:600;color:#888;margin-bottom:8px;text-align:center">クイック選択（クロス表）</div>
     <table class="cross-table" id="cross-table"></table>
   </div>
-
   <div class="section" id="history-section">
     <div class="hist-header">
       <span class="left" id="hist-count"></span>
@@ -161,7 +206,7 @@ body {
 
 <script>
 const INITIAL=[0,1,0,1,1,0];
-let currentState=[...INITIAL], selected=[], phase="select", history=[], flipTimer=null;
+let currentState=[...INITIAL],selected=[],phase="select",history=[],timers=[];
 
 const allPairs=[];
 for(let i=1;i<=6;i++) for(let j=i+1;j<=6;j++) allPairs.push([i,j]);
@@ -173,19 +218,45 @@ function hasConsec(s){for(let i=0;i<s.length-1;i++)if(s[i]===0&&s[i+1]===0)retur
 function getConsecSet(s){const r=new Set();for(let i=0;i<s.length-1;i++)if(s[i]===0&&s[i+1]===0){r.add(i);r.add(i+1);}return r;}
 function getTried(a,b){return history.find(h=>h.a===a&&h.b===b);}
 
+function discFaceHTML(val, side) {
+  const isW = val===0;
+  const faceCls = side==='front'
+    ? (isW ? 'disc-face front-white' : 'disc-face front-black')
+    : (isW ? 'disc-face back back-white' : 'disc-face back back-black');
+  return `<div class="${faceCls}">${isW?'白':'黒'}</div>`;
+}
+
 function renderDiscs(){
   const row=document.getElementById('disc-row');
   const a=getA(),b=getB();
-  const cs=phase==='result'?getConsecSet(currentState):new Set();
+  const consecSet = phase==='result' ? getConsecSet(currentState) : new Set();
   let h='';
   for(let i=0;i<6;i++){
-    const c=currentState[i],isW=c===0;
+    const c=currentState[i];
     const inR=a!==null&&b!==null&&i>=a-1&&i<=b-1;
-    let cls=isW?'disc white':'disc black';
-    if(phase==='ready'&&inR)cls+=' in-range-ready';
-    else if(phase==='flipping'&&inR)cls+=' in-range-flipping';
-    else if(phase==='result'&&cs.has(i))cls+=' consec';
-    h+=`<div class="disc-col"><div class="disc-num">${i+1}枚め</div><div class="${cls}">${isW?'白':'黒'}</div></div>`;
+    const flipped = 1-c; // what it becomes after flip
+
+    let wrapCls='disc-wrapper';
+    if(phase==='ready'&&inR) wrapCls+=' in-range-ready ready-bounce';
+
+    // Front face is current, back face is flipped
+    let frontVal=c, backVal=flipped;
+
+    // Build faces
+    let frontExtra='', backExtra='';
+    if(phase==='result'&&consecSet.has(i)){
+      frontExtra=' consec-highlight';
+    }
+
+    h+=`<div class="disc-col">
+      <div class="disc-num">${i+1}枚め</div>
+      <div class="${wrapCls}" id="dw${i}">
+        <div class="disc-face ${c===0?'front-white':'front-black'}${frontExtra}">${c===0?'白':'黒'}</div>
+        ${inR && (phase==='ready'||phase==='flipping')
+          ? `<div class="disc-face back ${flipped===0?'back-white':'back-black'}">${flipped===0?'白':'黒'}</div>`
+          : ''}
+      </div>
+    </div>`;
   }
   row.innerHTML=h;
   row.style.background=phase==='result'?(hasConsec(currentState)?'linear-gradient(180deg,rgba(34,197,94,.06),transparent)':'linear-gradient(180deg,rgba(239,68,68,.04),transparent)'):phase==='ready'?'linear-gradient(180deg,rgba(59,130,246,.04),transparent)':'transparent';
@@ -244,7 +315,7 @@ function renderButtons(){
 function renderCrossTable(){
   const tbl=document.getElementById('cross-table');
   const a=getA(),b=getB();
-  let h='<tr class="label-row"><th class="corner">a ＼ b</th>';
+  let h='<tr><th class="corner">a ＼ b</th>';
   for(let bi=1;bi<=6;bi++) h+=`<th class="header-b">${bi}</th>`;
   h+='</tr>';
   for(let ai=1;ai<=6;ai++){
@@ -257,7 +328,7 @@ function renderCrossTable(){
         if(isActive) cls+=' active-cell';
         else if(tried) cls+=tried.success?' tried-yes':' tried-no';
         let txt=`${ai},${bi}`;
-        if(tried) txt+= tried.success?' ○':' ×';
+        if(tried) txt+=tried.success?' ○':' ×';
         h+=`<td class="${cls}" onclick="quickSelect(${ai},${bi})">${txt}</td>`;
       } else {
         h+=`<td class="empty-cell">${ai===bi?'―':''}</td>`;
@@ -272,15 +343,14 @@ function renderHistory(){
   const sec=document.getElementById('history-section');
   if(history.length===0){sec.classList.remove('show');return;}
   sec.classList.add('show');
-  const sc=history.filter(h=>h.success).length, fc=history.length-sc;
+  const sc=history.filter(h=>h.success).length,fc=history.length-sc;
   document.getElementById('hist-count').textContent=`調べた結果（${history.length}/15通り）`;
   document.getElementById('hist-ratio').textContent=`○ ${sc}通り / × ${fc}通り`;
   document.getElementById('progress-fill').style.width=(history.length/15*100)+'%';
-
   const sorted=[...history].sort((a,b)=>a.a*10+a.b-(b.a*10+b.b));
-  let h='<table class="hist-table"><thead><tr><th>(a,b)</th>';
+  let h='<table class="hist-table"><thead><tr><th style="width:56px">(a,b)</th>';
   for(let i=1;i<=6;i++) h+=`<th>${i}</th>`;
-  h+='<th>判定</th></tr></thead><tbody>';
+  h+='<th style="width:36px">判定</th></tr></thead><tbody>';
   for(const row of sorted){
     const cs=getConsecSet(row.result);
     h+=`<tr><td class="ab-col">(${row.a},${row.b})</td>`;
@@ -293,7 +363,6 @@ function renderHistory(){
   }
   h+='</tbody></table>';
   document.getElementById('hist-table-wrap').innerHTML=h;
-
   const banner=document.getElementById('complete-banner');
   if(history.length===15){
     banner.classList.add('show');
@@ -306,6 +375,7 @@ function renderAll(){
   renderCards(); renderButtons(); renderCrossTable(); renderHistory();
 }
 
+/* ---- Actions ---- */
 function clickCard(n){
   if(phase!=='select')return;
   if(selected.includes(n)) selected=selected.filter(x=>x!==n);
@@ -315,22 +385,55 @@ function clickCard(n){
 }
 
 function quickSelect(a,b){
-  clearTimeout(flipTimer);
+  clearTimers();
   selected=[a,b]; currentState=[...INITIAL]; phase='ready';
   renderAll();
 }
 
 function doFlip(){
   if(phase!=='ready'||selected.length!==2)return;
-  phase='flipping'; renderAll();
-  flipTimer=setTimeout(()=>{
-    currentState=doFlipState(INITIAL,getA(),getB());
-    phase='result'; renderAll();
-  },800);
+  const a=getA(),b=getB();
+  phase='flipping';
+  // Update label, bracket, buttons, cross table immediately
+  renderPhaseLabel(); renderBracket(); renderButtons(); renderCrossTable(); renderCards();
+
+  // Stagger each disc in range
+  const STAGGER=150; // ms between each disc
+  const ANIM_DUR=600; // ms per disc animation
+  const count=b-a+1;
+  const totalTime=ANIM_DUR+(count-1)*STAGGER+100;
+
+  for(let i=a-1;i<=b-1;i++){
+    const delay=(i-(a-1))*STAGGER;
+    const wrapper=document.getElementById('dw'+i);
+    if(!wrapper) continue;
+
+    // Remove ready styling
+    wrapper.classList.remove('in-range-ready','ready-bounce');
+
+    const t=setTimeout(()=>{
+      wrapper.classList.add('flipping');
+      wrapper.style.animationDuration=ANIM_DUR+'ms';
+    }, delay);
+    timers.push(t);
+  }
+
+  // After all done, switch to result
+  const t2=setTimeout(()=>{
+    currentState=doFlipState(INITIAL,a,b);
+    phase='result';
+    renderAll();
+  }, totalTime);
+  timers.push(t2);
+}
+
+function clearTimers(){
+  timers.forEach(t=>clearTimeout(t));
+  timers=[];
 }
 
 function resetAll(){
-  clearTimeout(flipTimer);
+  clearTimers();
   selected=[]; phase='select'; currentState=[...INITIAL];
   renderAll();
 }
