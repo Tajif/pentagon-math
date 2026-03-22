@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>正五角形の確率アニメーション</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Kaisei+Decol:wght@400;700&family=Noto+Sans+JP:wght@400;500;700&display=swap');
+
+  :root {
+    --bg: #0f1117;
+    --panel: #1a1d2e;
+    --border: #2a2f4a;
+    --accent-blue: #4fc3f7;
+    --accent-red: #ef5350;
+    --accent-yellow: #ffca28;
+    --text: #e8eaf6;
+    --text-dim: #7986cb;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans JP', sans-serif;
+    min-height: 100vh;
+    padding: 20px;
+    background-image: radial-gradient(ellipse at 20% 20%, rgba(79,195,247,0.04) 0%, transparent 60%),
+                      radial-gradient(ellipse at 80% 80%, rgba(239,83,80,0.04) 0%, transparent 60%);
+  }
+
+  h1 {
+    font-family: 'Kaisei Decol', serif;
+    text-align: center;
+    font-size: 1.4rem;
+    color: var(--accent-yellow);
+    margin-bottom: 6px;
+    letter-spacing: 0.05em;
+  }
+  .subtitle {
+    text-align: center;
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    margin-bottom: 20px;
+  }
+
+  .main-wrapper {
+    max-width: 600px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 16px;
+  }
+
+  /* ... (以下、元のスタイルを継承) ... */
+  .dice-row { display: flex; gap: 12px; align-items: center; margin-bottom: 10px; }
+  .dice-label { font-size: 0.9rem; min-width: 90px; }
+  .dice-btns { display: flex; gap: 6px; }
+  .dice-btn { width: 34px; height: 34px; border-radius: 8px; border: 2px solid var(--border); background: var(--bg); color: var(--text); font-size: 1rem; font-weight: 700; cursor: pointer; transition: all .15s; }
+  .dice-btn.selected-p { background: var(--accent-blue); border-color: var(--accent-blue); color: #000; }
+  .dice-btn.selected-q { background: var(--accent-red); border-color: var(--accent-red); color: #fff; }
+  .mode-tabs { display: flex; gap: 8px; margin-bottom: 14px; }
+  .mode-tab { flex: 1; padding: 8px 4px; border-radius: 10px; border: 2px solid var(--border); background: transparent; color: var(--text-dim); font-size: 0.82rem; font-weight: 700; cursor: pointer; }
+  .mode-tab.active-op1 { background: rgba(79,195,247,0.15); border-color: var(--accent-blue); color: var(--accent-blue); }
+  .mode-tab.active-op2 { background: rgba(239,83,80,0.15); border-color: var(--accent-red); color: var(--accent-red); }
+  .canvas-wrap { display: flex; justify-content: center; align-items: center; margin-top: 10px; }
+  svg#pentagon { width: 100%; max-width: 260px; height: auto; }
+  .nl-wrap { margin-top: 10px; padding: 16px 10px; background: rgba(0, 0, 0, 0.2); border-radius: 12px; border: 1px solid var(--border); }
+  .nl-title { font-size: 0.8rem; color: var(--text-dim); text-align: center; margin-bottom: 8px; font-weight: bold; }
+  svg#number-line { width: 100%; height: auto; display: block; }
+  .result-box { margin-top: 12px; padding: 10px 14px; border-radius: 10px; font-size: 0.88rem; line-height: 1.6; min-height: 56px; }
+  .result-meet { background: rgba(102,187,106,0.15); border: 1px solid #66bb6a; color: #66bb6a; }
+  .result-miss { background: rgba(239,83,80,0.1); border: 1px solid rgba(239,83,80,0.4); color: #ef9a9a; }
+  .result-neutral { background: rgba(121,134,203,0.1); border: 1px solid var(--border); color: var(--text-dim); }
+  .play-btn { width: 100%; padding: 10px; border-radius: 10px; border: none; background: linear-gradient(135deg, #4fc3f7, #7c4dff); color: #fff; font-size: 0.95rem; font-weight: 700; cursor: pointer; margin-top: 10px; }
+  .play-btn:disabled { opacity: 0.4; }
+  .step-info { font-size: 0.8rem; color: var(--text-dim); text-align: center; margin-top: 6px; min-height: 20px; }
+</style>
+</head>
+<body>
+
+<h1>正五角形の確率アニメーション</h1>
+<p class="subtitle">点Ｐと点Ｑが同じ頂点に止まる条件を視覚的に確認しよう</p>
+
+<div class="main-wrapper">
+  <div class="panel">
+    <div class="mode-tabs">
+      <button class="mode-tab active-op1" id="tab1" onclick="setMode(1)">操作① 同方向（反時計）</button>
+      <button class="mode-tab" id="tab2" onclick="setMode(2)">操作② 逆方向（時計）</button>
+    </div>
+
+    <div class="dice-row">
+      <span class="dice-label">１回目（P）</span>
+      <div class="dice-btns" id="p-btns"></div>
+    </div>
+    <div class="dice-row">
+      <span class="dice-label">２回目（Q）</span>
+      <div class="dice-btns" id="q-btns"></div>
+    </div>
+
+    <button class="play-btn" id="playBtn" onclick="playAnimation()"> >>アニメーション再生</button>
+    <div class="step-info" id="stepInfo">サイコロの目を選んで再生してください</div>
+
+    <div class="canvas-wrap">
+      <svg id="pentagon" viewBox="-10 -10 220 220">
+        <defs>
+          <filter id="glow">
+            <feGaussianBlur stdDeviation="3" result="blur"/>
+            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+        </defs>
+        <polygon id="penta-shape" points="" fill="none" stroke="#3d4a7a" stroke-width="1.5"/>
+        <path id="arc-ccw" d="" fill="none" stroke="#4fc3f7" stroke-width="1.5" stroke-dasharray="4 3" opacity="0"/>
+        <path id="arc-cw" d="" fill="none" stroke="#ef5350" stroke-width="1.5" stroke-dasharray="4 3" opacity="0"/>
+        <g id="vertex-group"></g>
+        <circle id="dotP" cx="100" cy="10" r="8" fill="#4fc3f7" filter="url(#glow)" opacity="0"/>
+        <text id="labelP" x="100" y="10" text-anchor="middle" dominant-baseline="central" fill="#000" font-size="10" font-weight="bold" opacity="0">P</text>
+        <circle id="dotQ" cx="100" cy="10" r="8" fill="#ef5350" filter="url(#glow)" opacity="0"/>
+        <text id="labelQ" x="100" y="10" text-anchor="middle" dominant-baseline="central" fill="#fff" font-size="10" font-weight="bold" opacity="0">Q</text>
+      </svg>
+    </div>
+
+    <div class="nl-wrap">
+      <div class="nl-title">五角形を展開した数直線</div>
+      <svg id="number-line" viewBox="0 0 600 100">
+        <g id="nl-ticks"></g>
+        <circle id="nlDotP" cx="0" cy="36" r="8" fill="#4fc3f7" filter="url(#glow)" opacity="0"/>
+        <text id="nlLabelP" x="0" y="36" text-anchor="middle" dominant-baseline="central" fill="#000" font-size="10" font-weight="bold" opacity="0">P</text>
+        <circle id="nlDotQ" cx="0" cy="64" r="8" fill="#ef5350" filter="url(#glow)" opacity="0"/>
+        <text id="nlLabelQ" x="0" y="64" text-anchor="middle" dominant-baseline="central" fill="#fff" font-size="10" font-weight="bold" opacity="0">Q</text>
+      </svg>
+    </div>
+
+    <div class="result-box result-neutral" id="resultBox">
+      サイコロの目を選んでアニメーションを確認しよう。
+    </div>
+  </div>
+</div>
+
+<script>
+const CX = 100, CY = 105, R = 88, N = 5, LABELS = ['A','B','C','D','E'];
+function vertexPos(i) {
+  const angle = -Math.PI/2 - (2*Math.PI/N) * i;
+  return { x: CX + R * Math.cos(angle), y: CY + R * Math.sin(angle) };
+}
+let mode = 1, diceP = null, diceQ = null, animating = false;
+
+function init() { buildPentagon(); buildDiceBtns(); buildNumberLine(mode); }
+
+function buildPentagon() {
+  const verts = Array.from({length:N}, (_,i) => vertexPos(i));
+  document.getElementById('penta-shape').setAttribute('points', verts.map(v=>`${v.x},${v.y}`).join(' '));
+  const g = document.getElementById('vertex-group');
+  g.innerHTML = '';
+  verts.forEach((v,i) => {
+    const circle = document.createElementNS('http://www.w3.org/2000/svg','circle');
+    circle.setAttribute('cx', v.x); circle.setAttribute('cy', v.y); circle.setAttribute('r', '5'); circle.setAttribute('fill', '#2a2f5a'); circle.setAttribute('stroke', '#5c6bc0'); circle.setAttribute('stroke-width', '2'); circle.setAttribute('id', `vert-${i}`);
+    g.appendChild(circle);
+    const tx = document.createElementNS('http://www.w3.org/2000/svg','text');
+    const angle = -Math.PI/2 - (2*Math.PI/N) * i;
+    tx.setAttribute('x', v.x + 18*Math.cos(angle)); tx.setAttribute('y', v.y + 18*Math.sin(angle));
+    tx.setAttribute('text-anchor','middle'); tx.setAttribute('dominant-baseline','central'); tx.setAttribute('fill','#7986cb'); tx.setAttribute('font-size','14'); tx.setAttribute('font-weight','bold');
+    tx.textContent = LABELS[i]; g.appendChild(tx);
+  });
+}
+
+function getNlX(val, currentMode) {
+  return currentMode === 1 ? 40 + val * (520 / 6) : 300 + val * (520 / 12);
+}
+
+function buildNumberLine(m) {
+  const g = document.getElementById('nl-ticks'); g.innerHTML = '';
+  const line = document.createElementNS('http://www.w3.org/2000/svg','line');
+  line.setAttribute('x1', '20'); line.setAttribute('y1', '50'); line.setAttribute('x2', '580'); line.setAttribute('y2', '50'); line.setAttribute('stroke', '#3d4a7a'); line.setAttribute('stroke-width', '2');
+  g.appendChild(line);
+  let startVal = m === 1 ? 0 : -6, endVal = 6;
+  for (let v = startVal; v <= endVal; v++) {
+    const x = getNlX(v, m);
+    const tick = document.createElementNS('http://www.w3.org/2000/svg','line');
+    tick.setAttribute('x1', x); tick.setAttribute('y1', '44'); tick.setAttribute('x2', x); tick.setAttribute('y2', '56'); tick.setAttribute('stroke', '#7986cb'); tick.setAttribute('stroke-width', '2'); g.appendChild(tick);
+    const vIdx = (v % 5 + 5) % 5;
+    const txtV = document.createElementNS('http://www.w3.org/2000/svg','text');
+    txtV.setAttribute('x', x); txtV.setAttribute('y', '22'); txtV.setAttribute('text-anchor', 'middle'); txtV.setAttribute('fill', '#fff'); txtV.setAttribute('font-weight', 'bold'); txtV.setAttribute('font-size', '13'); txtV.textContent = LABELS[vIdx]; g.appendChild(txtV);
+    const txtNum = document.createElementNS('http://www.w3.org/2000/svg','text');
+    txtNum.setAttribute('x', x); txtNum.setAttribute('y', '82'); txtNum.setAttribute('text-anchor', 'middle'); txtNum.setAttribute('fill', '#7986cb'); txtNum.setAttribute('font-size', '11'); txtNum.textContent = (v > 0 ? '+' : '') + v; g.appendChild(txtNum);
+  }
+}
+
+function buildDiceBtns() {
+  ['p','q'].forEach(who => {
+    const div = document.getElementById(`${who}-btns`); div.innerHTML = '';
+    for (let n=1; n<=6; n++) {
+      const b = document.createElement('button'); b.className = 'dice-btn'; b.textContent = n; b.onclick = () => selectDice(who, n); b.id = `${who}-btn-${n}`; div.appendChild(b);
+    }
+  });
+}
+
+function selectDice(who, val) {
+  if (animating) return;
+  if (who === 'p') diceP = val; else diceQ = val;
+  for (let n=1; n<=6; n++) {
+    document.getElementById(`p-btn-${n}`).className = 'dice-btn' + (diceP===n ? ' selected-p' : '');
+    document.getElementById(`q-btn-${n}`).className = 'dice-btn' + (diceQ===n ? ' selected-q' : '');
+  }
+  resetDots();
+  document.getElementById('stepInfo').textContent = 'アニメーション再生ボタンを押してください';
+}
+
+function setMode(m) {
+  if (animating) return;
+  mode = m;
+  document.getElementById('tab1').className = 'mode-tab' + (m===1 ? ' active-op1' : '');
+  document.getElementById('tab2').className = 'mode-tab' + (m===2 ? ' active-op2' : '');
+  buildNumberLine(m); resetDots();
+}
+
+function setDotPos(id, labelId, pos, show) {
+  const v = vertexPos(pos), el = document.getElementById(id), lbl = document.getElementById(labelId);
+  el.setAttribute('cx', v.x); el.setAttribute('cy', v.y); lbl.setAttribute('x', v.x); lbl.setAttribute('y', v.y);
+  el.setAttribute('opacity', show ? '1' : '0'); lbl.setAttribute('opacity', show ? '1' : '0');
+}
+
+function setNlDot(dotId, lblId, x, show) {
+  const el = document.getElementById(dotId), lbl = document.getElementById(lblId);
+  el.setAttribute('cx', x); lbl.setAttribute('x', x);
+  el.setAttribute('opacity', show ? '1' : '0'); lbl.setAttribute('opacity', show ? '1' : '0');
+}
+
+function resetDots() {
+  setDotPos('dotP','labelP', 0, false); setDotPos('dotQ','labelQ', 0, false);
+  setNlDot('nlDotP', 'nlLabelP', getNlX(0, mode), false); setNlDot('nlDotQ', 'nlLabelQ', getNlX(0, mode), false);
+  document.getElementById('arc-ccw').setAttribute('opacity', '0'); document.getElementById('arc-cw').setAttribute('opacity', '0');
+  for (let i=0; i<N; i++) { const c = document.getElementById(`vert-${i}`); c.setAttribute('fill', '#2a2f5a'); c.setAttribute('r', '5'); }
+}
+
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+async function playAnimation() {
+  if (animating || diceP === null || diceQ === null) return;
+  animating = true; document.getElementById('playBtn').disabled = true;
+  const p = diceP, q = diceQ, pPos = p % N, qPos = mode === 1 ? (q % N) : ((N - (q % N)) % N);
+  resetDots();
+  setDotPos('dotP','labelP', 0, true); setDotPos('dotQ','labelQ', 0, true);
+  setNlDot('nlDotP','nlLabelP', getNlX(0, mode), true); setNlDot('nlDotQ','nlLabelQ', getNlX(0, mode), true);
+  document.getElementById('dotP').setAttribute('transform', 'translate(-6, 0)');
+  document.getElementById('dotQ').setAttribute('transform', 'translate(6, 0)');
+  await sleep(800);
+  document.getElementById('dotP').removeAttribute('transform');
+  let curP = 0;
+  for (let step = 0; step < p; step++) {
+    const prev = curP; curP = (curP + 1) % N;
+    drawArc('arc-ccw', prev, curP, false);
+    await moveDotSmooth('dotP', 'labelP', prev, curP, 'nlDotP', getNlX(step, mode), getNlX(step+1, mode));
+  }
+  await sleep(600);
+  document.getElementById('dotQ').removeAttribute('transform');
+  let curQ = 0;
+  for (let step = 0; step < q; step++) {
+    const prev = curQ;
+    let nlFrom, nlTo;
+    if (mode === 1) { curQ = (curQ + 1) % N; nlFrom = step; nlTo = step + 1; }
+    else { curQ = (curQ - 1 + N) % N; nlFrom = -step; nlTo = -(step + 1); }
+    drawArc(mode === 1 ? 'arc-ccw' : 'arc-cw', prev, curQ, mode === 2);
+    await moveDotSmooth('dotQ', 'labelQ', prev, curQ, 'nlDotQ', getNlX(nlFrom, mode), getNlX(nlTo, mode));
+  }
+  await sleep(400);
+  document.getElementById('arc-ccw').setAttribute('opacity', '0');
+  document.getElementById('arc-cw').setAttribute('opacity', '0');
+  if (pPos === qPos) {
+    document.getElementById(`vert-${pPos}`).setAttribute('fill', '#ffca28');
+    document.getElementById(`vert-${pPos}`).setAttribute('r', '7');
+    document.getElementById('resultBox').className = 'result-box result-meet';
+    const reason = mode === 1 ? `差が ${Math.abs(p-q)}（5の倍数）` : `和が ${p+q}（5の倍数）`;
+    document.getElementById('resultBox').innerHTML = `★ <strong>頂点 ${LABELS[pPos]} で一致！</strong><br>${reason}なので同じ場所に止まります。`;
+  } else {
+    document.getElementById('resultBox').className = 'result-box result-miss';
+    document.getElementById('resultBox').innerHTML = `× <strong>別々の頂点です</strong><br>P: ${LABELS[pPos]}, Q: ${LABELS[qPos]}`;
+  }
+  animating = false; document.getElementById('playBtn').disabled = false;
+}
+
+async function moveDotSmooth(dotId, lblId, from, to, nlDotId, nlFromX, nlToX) {
+  const FRAMES = 15, vf = vertexPos(from), vt = vertexPos(to);
+  const cx = (vf.x + vt.x) / 2 + (CX - (vf.x + vt.x)/2) * 0.15, cy = (vf.y + vt.y) / 2 + (CY - (vf.y + vt.y)/2) * 0.15;
+  for (let f = 0; f <= FRAMES; f++) {
+    const t = f / FRAMES, x = (1-t)*(1-t)*vf.x + 2*(1-t)*t*cx + t*t*vt.x, y = (1-t)*(1-t)*vf.y + 2*(1-t)*t*cy + t*t*vt.y;
+    document.getElementById(dotId).setAttribute('cx', x); document.getElementById(dotId).setAttribute('cy', y);
+    document.getElementById(lblId).setAttribute('x', x); document.getElementById(lblId).setAttribute('y', y);
+    const nx = nlFromX + (nlToX - nlFromX) * t;
+    document.getElementById(nlDotId).setAttribute('cx', nx);
+    document.getElementById(nlDotId.replace('nlDot', 'nlLabel')).setAttribute('x', nx);
+    await sleep(16);
+  }
+  setDotPos(dotId, lblId, to, true);
+}
+
+function drawArc(arcId, from, to, cw) {
+  const vf = vertexPos(from), vt = vertexPos(to), r = Math.sqrt((vt.x-vf.x)**2 + (vt.y-vf.y)**2) * 0.7;
+  document.getElementById(arcId).setAttribute('d', `M ${vf.x} ${vf.y} A ${r} ${r} 0 0 ${cw ? 1 : 0} ${vt.x} ${vt.y}`);
+  document.getElementById(arcId).setAttribute('opacity', '0.7');
+}
+init();
+</script>
+</body>
+</html>
