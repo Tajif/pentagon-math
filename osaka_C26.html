@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>円盤ひっくり返しシミュレーター</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  font-family: 'Hiragino Kaku Gothic ProN','Noto Sans JP',sans-serif;
+  background: #f3f4f6;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  padding: 20px 8px;
+}
+#app { max-width: 540px; width: 100%; }
+
+.title-area { text-align:center; margin-bottom:18px; padding-bottom:14px; border-bottom:1px solid #e0e0e0; }
+.title-area h2 { font-size:18px; font-weight:700; color:#1a1a1a; margin-bottom:4px; }
+.title-area p { font-size:12px; color:#888; }
+
+#phase-label { font-size:13px; font-weight:500; color:#666; text-align:center; margin-bottom:6px; transition:all .3s; }
+#phase-label.ready { color:#2563eb; font-weight:700; }
+
+#bracket-area { display:flex; justify-content:center; height:0; overflow:hidden; transition:height .3s; }
+#bracket-area.show { height:26px; margin-bottom:2px; }
+
+#disc-row { display:flex; justify-content:center; gap:10px; padding:10px 0 16px; border-radius:12px; transition:background .5s; }
+.disc-col { display:flex; flex-direction:column; align-items:center; gap:5px; }
+.disc-num { font-size:11px; color:#8a8a8a; font-weight:500; }
+.disc {
+  width:54px; height:54px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  font-size:16px; font-weight:700; user-select:none;
+  transition: all .4s cubic-bezier(.4,0,.2,1);
+  position:relative; z-index:1;
+}
+.disc.white { background:radial-gradient(circle at 35% 35%,#fff,#e8e8e8); border:2px solid #c0c0c0; color:#333; box-shadow:0 2px 8px rgba(0,0,0,.12); }
+.disc.black { background:radial-gradient(circle at 35% 35%,#4a4a4a,#1a1a1a); border:2px solid #333; color:#eee; box-shadow:0 2px 8px rgba(0,0,0,.2); }
+.disc.in-range-ready { border:3px solid #3b82f6!important; box-shadow:0 0 0 5px rgba(59,130,246,.15),0 0 24px rgba(59,130,246,.3)!important; transform:scale(1.12); z-index:2; }
+.disc.in-range-flipping { border:3px solid #3b82f6!important; box-shadow:0 0 16px rgba(59,130,246,.5)!important; transform:rotateY(180deg); }
+.disc.consec { border:3px solid #22c55e!important; box-shadow:0 0 12px rgba(34,197,94,.4)!important; }
+
+#result-badge { text-align:center; margin:2px 0 10px; display:none; }
+#result-badge.show { display:block; animation:fadeIn .4s ease; }
+#result-badge span { display:inline-block; padding:6px 20px; border-radius:20px; font-size:14px; font-weight:700; }
+#result-badge span.yes { background:#dcfce7; color:#15803d; border:1px solid #86efac; }
+#result-badge span.no { background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; }
+
+.section { background:#fff; border-radius:12px; padding:14px 16px; margin-bottom:10px; box-shadow:0 1px 3px rgba(0,0,0,.06); }
+
+.card-area-title { font-size:13px; font-weight:600; color:#555; text-align:center; margin-bottom:10px; }
+#card-hint { color:#3b82f6; margin-left:8px; }
+#card-row { display:flex; justify-content:center; gap:8px; margin-bottom:10px; }
+.card-btn {
+  width:46px; height:62px; border-radius:8px; border:1.5px solid #d0d0d0;
+  background:#fff; color:#333; font-size:21px; font-weight:700;
+  cursor:pointer; transition:all .2s; font-family:Georgia,serif;
+  box-shadow:0 1px 4px rgba(0,0,0,.08);
+}
+.card-btn:hover:not(:disabled) { border-color:#93c5fd; }
+.card-btn.selected { border:2.5px solid #3b82f6; background:linear-gradient(135deg,#dbeafe,#eff6ff); color:#1d4ed8; box-shadow:0 2px 12px rgba(59,130,246,.25); }
+.card-btn:disabled { background:#f5f5f5; color:#aaa; cursor:not-allowed; }
+
+#ab-display { text-align:center; font-size:13px; color:#555; margin-bottom:10px; display:none; }
+#ab-display b { color:#1d4ed8; }
+
+#btn-row { display:flex; justify-content:center; gap:10px; }
+#btn-flip { padding:10px 32px; border-radius:8px; border:none; background:linear-gradient(135deg,#3b82f6,#2563eb); color:#fff; font-size:15px; font-weight:700; cursor:pointer; box-shadow:0 2px 12px rgba(59,130,246,.35); animation:pulse 1.5s ease-in-out infinite; display:none; }
+#btn-record { padding:10px 20px; border-radius:8px; border:1.5px solid #3b82f6; background:#fff; color:#2563eb; font-size:14px; font-weight:600; cursor:pointer; display:none; }
+#btn-reset { padding:10px 20px; border-radius:8px; border:1.5px solid #d0d0d0; background:#fff; color:#666; font-size:14px; font-weight:600; cursor:pointer; display:none; }
+
+/* Cross table */
+.cross-table { border-collapse:collapse; margin:0 auto; }
+.cross-table th,.cross-table td { width:50px; height:38px; text-align:center; vertical-align:middle; font-size:12px; font-weight:600; }
+.cross-table th { color:#888; font-weight:500; }
+.cross-table .header-a { color:#2563eb; font-weight:700; font-size:13px; }
+.cross-table .header-b { color:#dc2626; font-weight:700; font-size:13px; }
+.cross-table .corner { font-size:10px; color:#aaa; font-weight:400; }
+.cross-table td.pair-cell { cursor:pointer; border-radius:6px; transition:all .15s; border:1.5px solid #e0e0e0; font-size:13px; }
+.cross-table td.pair-cell:hover { background:#eff6ff; border-color:#93c5fd; }
+.cross-table td.tried-yes { background:#f0fdf4; border-color:#86efac; color:#15803d; }
+.cross-table td.tried-no { background:#fef2f2; border-color:#fca5a5; color:#b91c1c; }
+.cross-table td.active-cell { background:#dbeafe; border:2px solid #3b82f6; color:#1d4ed8; }
+.cross-table td.empty-cell { background:#f9f9f9; border:none; cursor:default; color:#ddd; font-size:10px; }
+
+/* History table */
+#history-section { display:none; }
+#history-section.show { display:block; }
+.hist-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+.hist-header .left { font-size:13px; font-weight:600; color:#555; }
+.hist-header .right { font-size:12px; color:#888; }
+#progress-bar { height:6px; background:#e5e7eb; border-radius:3px; margin-bottom:10px; overflow:hidden; }
+#progress-fill { height:100%; width:0; background:linear-gradient(90deg,#3b82f6,#8b5cf6); border-radius:3px; transition:width .3s; }
+
+.hist-table { width:100%; border-collapse:collapse; }
+.hist-table th { font-size:11px; color:#888; font-weight:500; padding:4px 2px 6px; border-bottom:1.5px solid #e0e0e0; }
+.hist-table td { padding:5px 2px; text-align:center; border-bottom:.5px solid #eee; vertical-align:middle; }
+.hist-table .ab-col { font-weight:700; font-size:13px; color:#444; white-space:nowrap; }
+.mini-disc {
+  display:inline-block; width:22px; height:22px; border-radius:50%; vertical-align:middle;
+}
+.mini-disc.w { background:#fff; border:1.5px solid #bbb; }
+.mini-disc.b { background:#2a2a2a; border:1.5px solid #444; }
+.mini-disc.consec-w { background:#fff; border:2px solid #22c55e; box-shadow:0 0 4px rgba(34,197,94,.3); }
+.judge-yes { color:#15803d; font-weight:700; font-size:15px; }
+.judge-no { color:#b91c1c; font-weight:700; font-size:15px; }
+
+#complete-banner { margin-top:12px; padding:10px 14px; border-radius:8px; background:linear-gradient(135deg,#faf5ff,#ede9fe); border:1px solid #c4b5fd; text-align:center; display:none; }
+#complete-banner.show { display:block; }
+#complete-title { font-size:14px; font-weight:700; color:#5b21b6; }
+#complete-result { font-size:18px; font-weight:800; color:#4c1d95; margin-top:4px; }
+#btn-clear-history { margin-top:8px; padding:4px 12px; border-radius:6px; border:1px solid #d0d0d0; background:transparent; color:#999; font-size:11px; cursor:pointer; }
+
+@keyframes fadeIn { from{opacity:0;transform:translateY(-6px)} to{opacity:1;transform:translateY(0)} }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.7} }
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="title-area">
+    <h2>円盤ひっくり返しシミュレーター</h2>
+    <p>カードを2枚選んで、円盤をひっくり返してみよう</p>
+  </div>
+  <div id="phase-label">初期状態</div>
+  <div id="bracket-area"><svg id="bracket-svg" width="384" height="24" style="overflow:visible"></svg></div>
+  <div id="disc-row"></div>
+  <div id="result-badge"><span></span></div>
+
+  <div class="section" id="card-section">
+    <div class="card-area-title">カードを2枚選ぼう<span id="card-hint"></span></div>
+    <div id="card-row"></div>
+    <div id="ab-display"></div>
+    <div id="btn-row">
+      <button id="btn-flip" onclick="doFlip()">ひっくり返す！</button>
+      <button id="btn-record" onclick="recordAndReset()">記録してリセット</button>
+      <button id="btn-reset" onclick="resetAll()">リセット</button>
+    </div>
+  </div>
+
+  <div class="section" id="quick-section">
+    <div style="font-size:12px;font-weight:600;color:#888;margin-bottom:8px;text-align:center">クイック選択（クロス表）</div>
+    <table class="cross-table" id="cross-table"></table>
+  </div>
+
+  <div class="section" id="history-section">
+    <div class="hist-header">
+      <span class="left" id="hist-count"></span>
+      <span class="right" id="hist-ratio"></span>
+    </div>
+    <div id="progress-bar"><div id="progress-fill"></div></div>
+    <div id="hist-table-wrap"></div>
+    <div id="complete-banner">
+      <div id="complete-title">全15通り調査完了！</div>
+      <div id="complete-result"></div>
+    </div>
+    <button id="btn-clear-history" onclick="clearHistory()">記録をクリア</button>
+  </div>
+</div>
+
+<script>
+const INITIAL=[0,1,0,1,1,0];
+let currentState=[...INITIAL], selected=[], phase="select", history=[], flipTimer=null;
+
+const allPairs=[];
+for(let i=1;i<=6;i++) for(let j=i+1;j<=6;j++) allPairs.push([i,j]);
+
+function getA(){return selected.length===2?Math.min(...selected):null;}
+function getB(){return selected.length===2?Math.max(...selected):null;}
+function doFlipState(s,a,b){return s.map((v,i)=>i>=a-1&&i<=b-1?1-v:v);}
+function hasConsec(s){for(let i=0;i<s.length-1;i++)if(s[i]===0&&s[i+1]===0)return true;return false;}
+function getConsecSet(s){const r=new Set();for(let i=0;i<s.length-1;i++)if(s[i]===0&&s[i+1]===0){r.add(i);r.add(i+1);}return r;}
+function getTried(a,b){return history.find(h=>h.a===a&&h.b===b);}
+
+function renderDiscs(){
+  const row=document.getElementById('disc-row');
+  const a=getA(),b=getB();
+  const cs=phase==='result'?getConsecSet(currentState):new Set();
+  let h='';
+  for(let i=0;i<6;i++){
+    const c=currentState[i],isW=c===0;
+    const inR=a!==null&&b!==null&&i>=a-1&&i<=b-1;
+    let cls=isW?'disc white':'disc black';
+    if(phase==='ready'&&inR)cls+=' in-range-ready';
+    else if(phase==='flipping'&&inR)cls+=' in-range-flipping';
+    else if(phase==='result'&&cs.has(i))cls+=' consec';
+    h+=`<div class="disc-col"><div class="disc-num">${i+1}枚め</div><div class="${cls}">${isW?'白':'黒'}</div></div>`;
+  }
+  row.innerHTML=h;
+  row.style.background=phase==='result'?(hasConsec(currentState)?'linear-gradient(180deg,rgba(34,197,94,.06),transparent)':'linear-gradient(180deg,rgba(239,68,68,.04),transparent)'):phase==='ready'?'linear-gradient(180deg,rgba(59,130,246,.04),transparent)':'transparent';
+}
+
+function renderBracket(){
+  const area=document.getElementById('bracket-area'),svg=document.getElementById('bracket-svg');
+  if((phase==='ready'||phase==='flipping')&&getA()!==null){
+    area.classList.add('show');
+    const a=getA(),b=getB(),step=64,lx=(a-1)*step+4,rx=(b-1)*step+50,mx=(lx+rx)/2;
+    svg.innerHTML=`<line x1="${lx}" y1="18" x2="${rx}" y2="18" stroke="#3b82f6" stroke-width="2.5" stroke-linecap="round"/><line x1="${lx}" y1="11" x2="${lx}" y2="22" stroke="#3b82f6" stroke-width="2.5" stroke-linecap="round"/><line x1="${rx}" y1="11" x2="${rx}" y2="22" stroke="#3b82f6" stroke-width="2.5" stroke-linecap="round"/><text x="${mx}" y="10" text-anchor="middle" font-size="11" font-weight="700" fill="#2563eb" font-family="'Hiragino Kaku Gothic ProN','Noto Sans JP',sans-serif">この範囲を反転</text>`;
+  } else { area.classList.remove('show'); svg.innerHTML=''; }
+}
+
+function renderPhaseLabel(){
+  const el=document.getElementById('phase-label'),a=getA(),b=getB();
+  if(phase==='select'){el.textContent='初期状態';el.className='';}
+  else if(phase==='ready'){el.textContent=`${a}枚め 〜 ${b}枚め を反転します`;el.className='ready';}
+  else if(phase==='flipping'){el.textContent='ひっくり返し中...';el.className='';}
+  else{el.textContent='ひっくり返した後';el.className='';}
+}
+
+function renderResult(){
+  const badge=document.getElementById('result-badge');
+  if(phase==='result'){
+    const ok=hasConsec(currentState);
+    badge.classList.add('show');
+    badge.querySelector('span').className=ok?'yes':'no';
+    badge.querySelector('span').textContent=ok?'○ 白が2枚以上連続している！':'× 白が2枚以上連続していない';
+  } else badge.classList.remove('show');
+}
+
+function renderCards(){
+  const row=document.getElementById('card-row');
+  let h='';
+  for(let n=1;n<=6;n++){
+    const isSel=selected.includes(n);
+    const dis=phase!=='select'||(selected.length>=2&&!isSel);
+    h+=`<button class="card-btn${isSel?' selected':''}" ${dis?'disabled':''} onclick="clickCard(${n})">${n}</button>`;
+  }
+  row.innerHTML=h;
+  document.getElementById('card-hint').textContent=selected.length===1?'（あと1枚）':'';
+  const abDisp=document.getElementById('ab-display');
+  if((phase==='ready'||phase==='result')&&getA()!==null){
+    abDisp.style.display='block';
+    abDisp.innerHTML=`a = <b>${getA()}</b>、b = <b>${getB()}</b> → <b>${getA()}枚めから${getB()}枚め</b>をひっくり返す`;
+  } else abDisp.style.display='none';
+}
+
+function renderButtons(){
+  document.getElementById('btn-flip').style.display=phase==='ready'?'inline-block':'none';
+  document.getElementById('btn-record').style.display=phase==='result'?'inline-block':'none';
+  document.getElementById('btn-reset').style.display=phase==='result'?'inline-block':'none';
+}
+
+function renderCrossTable(){
+  const tbl=document.getElementById('cross-table');
+  const a=getA(),b=getB();
+  let h='<tr class="label-row"><th class="corner">a ＼ b</th>';
+  for(let bi=1;bi<=6;bi++) h+=`<th class="header-b">${bi}</th>`;
+  h+='</tr>';
+  for(let ai=1;ai<=6;ai++){
+    h+=`<tr><th class="header-a">${ai}</th>`;
+    for(let bi=1;bi<=6;bi++){
+      if(ai<bi){
+        const tried=getTried(ai,bi);
+        const isActive=phase!=='select'&&a===ai&&b===bi;
+        let cls='pair-cell';
+        if(isActive) cls+=' active-cell';
+        else if(tried) cls+=tried.success?' tried-yes':' tried-no';
+        let txt=`${ai},${bi}`;
+        if(tried) txt+= tried.success?' ○':' ×';
+        h+=`<td class="${cls}" onclick="quickSelect(${ai},${bi})">${txt}</td>`;
+      } else {
+        h+=`<td class="empty-cell">${ai===bi?'―':''}</td>`;
+      }
+    }
+    h+='</tr>';
+  }
+  tbl.innerHTML=h;
+}
+
+function renderHistory(){
+  const sec=document.getElementById('history-section');
+  if(history.length===0){sec.classList.remove('show');return;}
+  sec.classList.add('show');
+  const sc=history.filter(h=>h.success).length, fc=history.length-sc;
+  document.getElementById('hist-count').textContent=`調べた結果（${history.length}/15通り）`;
+  document.getElementById('hist-ratio').textContent=`○ ${sc}通り / × ${fc}通り`;
+  document.getElementById('progress-fill').style.width=(history.length/15*100)+'%';
+
+  const sorted=[...history].sort((a,b)=>a.a*10+a.b-(b.a*10+b.b));
+  let h='<table class="hist-table"><thead><tr><th>(a,b)</th>';
+  for(let i=1;i<=6;i++) h+=`<th>${i}</th>`;
+  h+='<th>判定</th></tr></thead><tbody>';
+  for(const row of sorted){
+    const cs=getConsecSet(row.result);
+    h+=`<tr><td class="ab-col">(${row.a},${row.b})</td>`;
+    for(let i=0;i<6;i++){
+      const isW=row.result[i]===0;
+      const isCon=isW&&cs.has(i);
+      h+=`<td><span class="mini-disc ${isW?(isCon?'consec-w':'w'):'b'}"></span></td>`;
+    }
+    h+=`<td class="${row.success?'judge-yes':'judge-no'}">${row.success?'○':'×'}</td></tr>`;
+  }
+  h+='</tbody></table>';
+  document.getElementById('hist-table-wrap').innerHTML=h;
+
+  const banner=document.getElementById('complete-banner');
+  if(history.length===15){
+    banner.classList.add('show');
+    document.getElementById('complete-result').textContent=`確率 = ${sc}/15`;
+  } else banner.classList.remove('show');
+}
+
+function renderAll(){
+  renderPhaseLabel(); renderBracket(); renderDiscs(); renderResult();
+  renderCards(); renderButtons(); renderCrossTable(); renderHistory();
+}
+
+function clickCard(n){
+  if(phase!=='select')return;
+  if(selected.includes(n)) selected=selected.filter(x=>x!==n);
+  else if(selected.length<2) selected.push(n);
+  if(selected.length===2) phase='ready';
+  renderAll();
+}
+
+function quickSelect(a,b){
+  clearTimeout(flipTimer);
+  selected=[a,b]; currentState=[...INITIAL]; phase='ready';
+  renderAll();
+}
+
+function doFlip(){
+  if(phase!=='ready'||selected.length!==2)return;
+  phase='flipping'; renderAll();
+  flipTimer=setTimeout(()=>{
+    currentState=doFlipState(INITIAL,getA(),getB());
+    phase='result'; renderAll();
+  },800);
+}
+
+function resetAll(){
+  clearTimeout(flipTimer);
+  selected=[]; phase='select'; currentState=[...INITIAL];
+  renderAll();
+}
+
+function recordAndReset(){
+  const a=getA(),b=getB(),result=doFlipState(INITIAL,a,b),success=hasConsec(result);
+  if(!getTried(a,b)) history.push({a,b,result,success});
+  resetAll();
+}
+
+function clearHistory(){ history=[]; renderAll(); }
+
+renderAll();
+</script>
+</body>
+</html>
