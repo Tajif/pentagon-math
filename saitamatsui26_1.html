@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>階段さいころシミュレーター（1）</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN", "BIZ UDPGothic", "Noto Sans JP", sans-serif;
+  background: #f7f7f5;
+  color: #1a1a1a;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  padding: 2rem 1rem;
+}
+.wrap { max-width: 640px; width: 100%; }
+.page-title {
+  font-size: 18px;
+  font-weight: 600;
+  text-align: center;
+  margin-bottom: 4px;
+  color: #1a1a1a;
+}
+.page-sub {
+  font-size: 13px;
+  color: #888;
+  text-align: center;
+  margin-bottom: 1.2rem;
+}
+.info-text {
+  font-size: 13px;
+  color: #666;
+  text-align: center;
+  line-height: 1.7;
+  margin-bottom: 1.2rem;
+}
+.info-text strong { color: #1a1a1a; }
+.main-layout {
+  display: flex;
+  gap: 28px;
+  align-items: flex-start;
+  justify-content: center;
+}
+.stairs-area {
+  position: relative;
+  width: 330px;
+  height: 270px;
+  flex-shrink: 0;
+}
+.step-block {
+  position: absolute;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 600;
+  color: #999;
+  transition: background 0.3s, border-color 0.3s, color 0.3s;
+}
+.step-block.highlight {
+  background: #e8f2fc;
+  border-color: #7eb8e6;
+}
+.step-block.highlight .step-num { color: #1a6bb5; }
+.step-block.target-step {
+  background: #fdeaea;
+  border-color: #f09595;
+}
+.step-block.target-step .step-num { color: #a32d2d; }
+.person {
+  position: absolute;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transition: left 0.45s ease, bottom 0.45s ease;
+}
+.person-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #d85a30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 600;
+  color: white;
+}
+.person-lbl {
+  font-size: 11px;
+  font-weight: 500;
+  color: #888;
+  margin-top: 2px;
+}
+.bounce-label {
+  position: absolute;
+  z-index: 11;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.4s;
+  pointer-events: none;
+}
+.bounce-label.show { opacity: 1; }
+.bounce-up { background: #e8f2fc; color: #1a6bb5; }
+.bounce-down { background: #fdeaea; color: #a32d2d; }
+.dice-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 195px;
+}
+.dice-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+}
+.dice-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  background: #fff;
+  font-size: 18px;
+  font-weight: 600;
+  color: #1a1a1a;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.dice-btn:hover { background: #f0f0ee; }
+.dice-btn:active { transform: scale(0.95); }
+.dice-btn.pressed { background: #e8f2fc; border-color: #378add; color: #1a6bb5; }
+.arrow-span {
+  font-size: 13px;
+  color: #ccc;
+  margin: 0 2px;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.arrow-span.show { opacity: 1; }
+.result-tag {
+  font-size: 14px;
+  font-weight: 500;
+  color: #888;
+  padding: 4px 14px;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+  background: #f0f0ee;
+  min-width: 80px;
+  text-align: center;
+  opacity: 0;
+  transition: opacity 0.4s;
+}
+.result-tag.show { opacity: 1; }
+.result-tag.is-target {
+  background: #fdeaea;
+  border-color: #f09595;
+  color: #a32d2d;
+  font-weight: 600;
+}
+.move-desc {
+  font-size: 13px;
+  color: #1a1a1a;
+  text-align: center;
+  font-weight: 500;
+  min-height: 20px;
+  margin-top: 1.2rem;
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="page-title">階段さいころシミュレーター</div>
+  <div class="page-sub">2026 埼玉県公立高校入試 数学（1）</div>
+  <p class="info-text">Aさんは <strong>3段目</strong> にいます。さいころの目を押して、止まる段を確かめよう！<br><strong>5段目</strong> に止まるのはどの目のとき？</p>
+  <div class="main-layout">
+    <div class="stairs-area" id="stairsArea"></div>
+    <div class="dice-panel" id="dicePanel"></div>
+  </div>
+  <div class="move-desc" id="moveDesc"></div>
+</div>
+
+<script>
+const START = 3, TARGET = 5, STEPS = 6;
+const area = document.getElementById('stairsArea');
+const panel = document.getElementById('dicePanel');
+let animating = false, personEl, bounceLabel;
+const stepW = 52, stepH = 36;
+
+function getResult(start, die) {
+  const d = start + die;
+  return d <= 6 ? d : 12 - d;
+}
+
+function buildStairs() {
+  for (let n = 1; n <= STEPS; n++) {
+    const el = document.createElement('div');
+    el.className = 'step-block' + (n === TARGET ? ' target-step' : '');
+    el.id = 'step' + n;
+    el.style.cssText = 'left:' + (n-1)*stepW + 'px;bottom:' + (n-1)*stepH + 'px;width:' + stepW + 'px;height:' + stepH + 'px;';
+    el.innerHTML = '<span class="step-num">' + n + '</span>';
+    area.appendChild(el);
+  }
+  personEl = document.createElement('div');
+  personEl.className = 'person';
+  personEl.innerHTML = '<div class="person-icon">A</div><div class="person-lbl">Aさん</div>';
+  area.appendChild(personEl);
+  setPerson(START, false);
+  bounceLabel = document.createElement('div');
+  bounceLabel.className = 'bounce-label';
+  area.appendChild(bounceLabel);
+}
+
+function setPerson(step, anim) {
+  if (anim === undefined) anim = true;
+  personEl.style.transition = anim ? 'left 0.45s ease, bottom 0.45s ease' : 'none';
+  personEl.style.left = ((step-1)*stepW + stepW/2 - 17) + 'px';
+  personEl.style.bottom = ((step-1)*stepH + stepH) + 'px';
+}
+
+function showBounce(step, text, type) {
+  bounceLabel.textContent = text;
+  bounceLabel.className = 'bounce-label ' + (type === 'up' ? 'bounce-up' : 'bounce-down') + ' show';
+  bounceLabel.style.left = ((step-1)*stepW + stepW/2 - 40) + 'px';
+  bounceLabel.style.bottom = ((step-1)*stepH + stepH + 42) + 'px';
+}
+
+function clearAnim() {
+  for (let n = 1; n <= STEPS; n++) {
+    var el = document.getElementById('step' + n);
+    el.className = 'step-block' + (n === TARGET ? ' target-step' : '');
+  }
+  bounceLabel.className = 'bounce-label';
+  document.getElementById('moveDesc').textContent = '';
+}
+
+function buildDicePanel() {
+  for (let d = 1; d <= 6; d++) {
+    var row = document.createElement('div');
+    row.className = 'dice-row';
+    var btn = document.createElement('button');
+    btn.className = 'dice-btn';
+    btn.id = 'dbtn' + d;
+    btn.textContent = d;
+    (function(die) { btn.onclick = function() { runDie(die); }; })(d);
+    var arrow = document.createElement('span');
+    arrow.className = 'arrow-span';
+    arrow.id = 'arrow' + d;
+    arrow.textContent = '\u2192';
+    var tag = document.createElement('div');
+    tag.className = 'result-tag';
+    tag.id = 'rtag' + d;
+    row.appendChild(btn);
+    row.appendChild(arrow);
+    row.appendChild(tag);
+    panel.appendChild(row);
+  }
+}
+
+function wait(ms) { return new Promise(function(r) { setTimeout(r, ms); }); }
+
+async function runDie(die) {
+  if (animating) return;
+  animating = true;
+  clearAnim();
+  setPerson(START, false);
+  await wait(100);
+
+  document.getElementById('dbtn' + die).classList.add('pressed');
+
+  var dest = START + die;
+  var final = getResult(START, die);
+  var descEl = document.getElementById('moveDesc');
+
+  if (dest <= 6) {
+    for (let s = START + 1; s <= dest; s++) {
+      await wait(280);
+      setPerson(s);
+      document.getElementById('step' + s).classList.add('highlight');
+    }
+    descEl.textContent = '\u76EE' + die + '\uFF1A3\u6BB5\u76EE\u304B\u3089' + die + '\u6BB5\u4E0A\u304C\u3063\u3066 \u2192 ' + final + '\u6BB5\u76EE';
+    showBounce(final, die + '\u6BB5\u4E0A\u304C\u308B', 'up');
+  } else {
+    for (let s = START + 1; s <= 6; s++) {
+      await wait(220);
+      setPerson(s);
+      document.getElementById('step' + s).classList.add('highlight');
+    }
+    showBounce(6, '6\u6BB5\u76EE\u306B\u5230\u9054\uFF01\u6B8B\u308A' + (dest-6), 'up');
+    await wait(550);
+    bounceLabel.className = 'bounce-label';
+    for (let s = 5; s >= final; s--) {
+      await wait(280);
+      setPerson(s);
+    }
+    descEl.textContent = '\u76EE' + die + '\uFF1A3\u2192\u2026\u21926\u2192\u6298\u308A\u8FD4\u3057' + (dest-6) + '\u6BB5\u4E0B\u308A\u308B \u2192 ' + final + '\u6BB5\u76EE';
+    showBounce(final, '\u6298\u308A\u8FD4\u3057\u3066' + final + '\u6BB5\u76EE', 'down');
+  }
+
+  await wait(300);
+  var tag = document.getElementById('rtag' + die);
+  var arrow = document.getElementById('arrow' + die);
+  tag.textContent = final + '\u6BB5\u76EE';
+  tag.className = 'result-tag show' + (final === TARGET ? ' is-target' : '');
+  arrow.classList.add('show');
+
+  await wait(1200);
+  document.getElementById('dbtn' + die).classList.remove('pressed');
+  clearAnim();
+  setPerson(START);
+  await wait(400);
+  animating = false;
+}
+
+buildStairs();
+buildDicePanel();
+</script>
+</body>
+</html>
