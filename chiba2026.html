@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>二次元表連動・全事象シミュレーター</title>
+<style>
+    body { font-family: sans-serif; text-align: center; margin-top: 20px; }
+    
+    #instruction-text { font-size: 18px; font-weight: bold; color: #d35400; margin-bottom: 5px; }
+
+    /* （修正）サイコロの目を表示するダッシュボード */
+    .dice-dashboard {
+        display: flex;
+        justify-content: center;
+        gap: 30px;
+        margin: 15px auto 5px auto;
+        font-size: 20px;
+        font-weight: normal; /* ラベルの太字を解除 */
+        background-color: #f0f4f8;
+        padding: 10px 20px;
+        border-radius: 8px;
+        width: max-content;
+        border: 2px solid #ccc;
+    }
+    .dice-dashboard > div {
+        display: flex;
+        align-items: center; /* テキストと大きな枠の縦位置を中央で揃える */
+    }
+    .dice-number {
+        display: inline-block;
+        width: 45px;  /* 文字拡大に合わせて枠を拡大 */
+        height: 45px;
+        line-height: 45px;
+        font-size: 36px; /* フォントサイズを約1.8倍に拡大 */
+        font-weight: bold; /* 数字自体は太字で強調 */
+        background-color: #fff;
+        border: 2px solid #333;
+        border-radius: 4px;
+        text-align: center;
+        color: #333;
+        margin-left: 5px;
+    }
+
+    /* コマとマスの表示領域 */
+    .board-container { display: flex; width: 460px; margin: 10px auto 20px auto; position: relative; gap: 15px; }
+    .cell { box-sizing: border-box; width: 80px; height: 80px; border: 3px solid #333; display: flex; flex-direction: column; align-items: center; justify-content: center; background-color: #f9f9f9; border-radius: 8px; }
+    .cell-name { font-size: 28px; font-weight: bold; }
+    .cell-point { font-size: 14px; color: #555; }
+    
+    #piece { width: 40px; height: 40px; border-radius: 50%; position: absolute; top: 20px; left: 210px; transition: left 0.3s ease-in-out, background-color 0.3s, opacity 0.1s; z-index: 10; }
+
+    /* 順序表示エリア */
+    .sequence-container { margin: 10px auto 20px auto; font-size: 20px; font-weight: bold; background: #eef; padding: 15px; border-radius: 8px; display: inline-block; }
+    .seq-step { padding: 4px 8px; border-radius: 4px; transition: background-color 0.3s, color 0.3s; margin: 0 2px; border: 1px solid transparent; }
+
+    .state-default { background-color: #a0522d; color: white; } 
+    .state-moving { background-color: #a0522d !important; color: white !important; } 
+    .state-stop1 { background-color: #1e90ff !important; color: white !important; } 
+    .state-stop2 { background-color: #dc143c !important; color: white !important; } 
+
+    @keyframes piece-blink-anim {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0; }
+    }
+    .piece-blink { animation: piece-blink-anim 0.3s 2; }
+
+    /* 6x6の二次元表エリア */
+    .table-container { margin: 20px auto; display: flex; flex-direction: column; align-items: center; }
+    table { border-collapse: collapse; box-shadow: 0 4px 8px rgba(0,0,0,0.2); background-color: #fff; }
+    th, td { width: 65px; height: 55px; text-align: center; font-size: 16px; font-weight: bold; }
+    th { background-color: #e0e0e0; border: 1px solid #999; }
+    .corner-th { font-size: 12px; line-height: 1.2; position: relative; }
+    .axis-label1 { position: absolute; bottom: 2px; left: 2px; }
+    .axis-label2 { position: absolute; top: 2px; right: 2px; }
+    
+    td.playable { 
+        background-color: #f5f5f5; border: 1px solid #bbb; cursor: pointer; 
+        box-shadow: inset 2px 2px 4px #ffffff, inset -2px -2px 4px #cccccc;
+        transition: transform 0.1s, box-shadow 0.1s, background-color 0.1s; 
+    }
+    td.playable:hover { background-color: #e8e8e8; }
+    td.playable:active { 
+        background-color: #e0e0e0; box-shadow: inset 2px 2px 4px #cccccc, inset -2px -2px 4px #ffffff;
+    }
+    
+    td.played { background-color: #fafafa; border: 1px solid #ddd; cursor: default; box-shadow: none; color: #555; }
+    td.success { background-color: #ffdce0; border: 1px solid #eaa; color: #dc143c; cursor: default; box-shadow: none; }
+
+    @keyframes blink-yellow {
+        0% { background-color: #fffacd; box-shadow: inset 0 0 10px #f1c40f; }
+        50% { background-color: #ffeb3b; box-shadow: inset 0 0 15px #f39c12; }
+        100% { background-color: #fffacd; box-shadow: inset 0 0 10px #f1c40f; }
+    }
+    td.processing { animation: blink-yellow 1s infinite; border: 2px solid #f39c12; cursor: default; }
+
+    #status-msg { font-size: 18px; font-weight: bold; height: 25px; margin-bottom: 10px; color: #333; }
+    .overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: transparent; z-index: 100; display: none; }
+</style>
+</head>
+<body>
+
+    <h2>高校入試 確率ゲーム シミュレーター</h2>
+    <p id="instruction-text">表の中（マス）をクリックしてスタート</p>
+    
+    <div id="status-msg">待機中...</div>
+
+    <div class="dice-dashboard">
+        <div>1回目に出た目：<span id="dice-val-1" class="dice-number"></span></div>
+        <div>2回目に出た目：<span id="dice-val-2" class="dice-number"></span></div>
+    </div>
+
+    <div class="board-container" id="board">
+        <div class="cell"><div class="cell-name">A</div><div class="cell-point">2点</div></div>
+        <div class="cell"><div class="cell-name">B</div><div class="cell-point">1点</div></div>
+        <div class="cell"><div class="cell-name">C</div><div class="cell-point">3点</div></div>
+        <div class="cell"><div class="cell-name">D</div><div class="cell-point">1点</div></div>
+        <div class="cell"><div class="cell-name">E</div><div class="cell-point">2点</div></div>
+        <div id="piece" class="state-default"></div> 
+    </div>
+
+    <div class="sequence-container" id="sequence-display"></div>
+
+    <div class="table-container">
+        <table id="dice-table">
+            <tr>
+                <th class="corner-th"><span class="axis-label1">1回目↓</span><span class="axis-label2">2回目→</span></th>
+                <th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th>
+            </tr>
+        </table>
+    </div>
+
+    <div id="block-overlay" class="overlay"></div>
+
+<script>
+    const sequenceMap = [2, 3, 4, 3, 2, 1, 0, 1, 2, 3, 4, 3, 2]; 
+    const charMap = ["A", "B", "C", "D", "E"];
+    const pointsMap = { 0: 2, 1: 1, 2: 3, 3: 1, 4: 2 };
+    
+    function initUI() {
+        const seqContainer = document.getElementById('sequence-display');
+        sequenceMap.forEach((cellIndex, i) => {
+            let span = document.createElement('span');
+            span.className = 'seq-step';
+            span.id = 'seq-' + i;
+            span.innerText = charMap[cellIndex];
+            seqContainer.appendChild(span);
+            if(i < sequenceMap.length - 1) {
+                seqContainer.appendChild(document.createTextNode(' → '));
+            }
+        });
+
+        const table = document.getElementById('dice-table');
+        for (let r = 1; r <= 6; r++) {
+            let tr = document.createElement('tr');
+            let th = document.createElement('th');
+            th.innerText = r;
+            tr.appendChild(th);
+            
+            for (let c = 1; c <= 6; c++) {
+                let td = document.createElement('td');
+                td.className = 'playable';
+                td.onclick = function() { playSimulation(r, c, td); };
+                tr.appendChild(td);
+            }
+            table.appendChild(tr);
+        }
+    }
+
+    function getLeftPosition(cellIndex) {
+        return 20 + cellIndex * 95;
+    }
+
+    function resetBoard() {
+        let piece = document.getElementById('piece');
+        piece.style.left = getLeftPosition(2) + 'px'; 
+        piece.className = 'state-default'; 
+        
+        document.querySelectorAll('.seq-step').forEach((el, index) => {
+            el.className = 'seq-step'; 
+            el.innerText = charMap[sequenceMap[index]]; 
+        });
+    }
+
+    function playSimulation(dice1, dice2, cellElement) {
+        if (cellElement.classList.contains('played') || cellElement.classList.contains('success') || cellElement.classList.contains('processing')) return; 
+        
+        document.getElementById('block-overlay').style.display = 'block';
+        
+        cellElement.classList.remove('playable');
+        cellElement.classList.add('processing');
+        
+        let msg = document.getElementById('status-msg');
+        let piece = document.getElementById('piece');
+
+        msg.innerText = "初期位置(C)に戻ります...";
+        resetBoard();
+        
+        setTimeout(() => {
+            piece.classList.add('piece-blink');
+            
+            document.getElementById('dice-val-1').innerText = dice1;
+            document.getElementById('dice-val-2').innerText = dice2;
+            
+            setTimeout(() => {
+                piece.classList.remove('piece-blink');
+                msg.innerText = "準備完了...";
+                
+                setTimeout(() => {
+                    executeMovements(dice1, dice2, cellElement, msg, piece);
+                }, 400);
+
+            }, 600); 
+            
+        }, 400); 
+    }
+
+    function executeMovements(dice1, dice2, cellElement, msg, piece) {
+        msg.innerText = `1回目「${dice1}」が出ました。移動します...`;
+        let currentSeqIndex = 0; 
+        
+        animateMove(dice1, currentSeqIndex, 'state-moving', (finalIndex1) => {
+            let score1 = pointsMap[sequenceMap[finalIndex1]];
+            
+            setTimeout(() => {
+                piece.className = 'state-stop1';
+                let seq1 = document.getElementById('seq-' + finalIndex1);
+                seq1.classList.replace('state-moving', 'state-stop1');
+                seq1.innerText = `${charMap[sequenceMap[finalIndex1]]}(${score1}点)`;
+                
+                msg.innerText = `1回目は ${score1}点。続けて2回目「${dice2}」移動します...`;
+                
+                setTimeout(() => {
+                    animateMove(dice2, finalIndex1, 'state-moving', (finalIndex2) => {
+                        let score2 = pointsMap[sequenceMap[finalIndex2]];
+                        
+                        setTimeout(() => {
+                            piece.className = 'state-stop2';
+                            let seq2 = document.getElementById('seq-' + finalIndex2);
+                            seq2.classList.replace('state-moving', 'state-stop2');
+                            seq2.innerText = `${charMap[sequenceMap[finalIndex2]]}(${score2}点)`;
+                            
+                            let total = score1 + score2;
+                            if (total >= 3) {
+                                msg.innerText = `合計 ${total}点！ 3点以上達成です。`;
+                                cellElement.classList.add('success');
+                            } else {
+                                msg.innerText = `合計 ${total}点。 3点未満でした。`;
+                                cellElement.classList.add('played');
+                            }
+                            
+                            cellElement.innerHTML = `${score1}+${score2}<br>=<b>${total}</b>`;
+                            cellElement.classList.remove('processing');
+                            
+                            document.getElementById('block-overlay').style.display = 'none';
+                        }, 400); 
+                    });
+                }, 600); 
+            }, 400); 
+        });
+    }
+
+    function animateMove(steps, startIndex, movingClass, callback) {
+        let stepCount = 0;
+        let currentIndex = startIndex;
+        let piece = document.getElementById('piece');
+        
+        piece.className = movingClass;
+        
+        let interval = setInterval(() => {
+            stepCount++;
+            currentIndex++;
+            
+            let prevEl = document.getElementById('seq-' + (currentIndex - 1));
+            if(prevEl && prevEl.classList.contains(movingClass)) {
+                prevEl.classList.remove(movingClass);
+            }
+            
+            document.getElementById('seq-' + currentIndex).classList.add(movingClass);
+            
+            let boardCellIndex = sequenceMap[currentIndex];
+            piece.style.left = getLeftPosition(boardCellIndex) + 'px';
+            
+            if (stepCount >= steps) {
+                clearInterval(interval);
+                callback(currentIndex);
+            }
+        }, 400); 
+    }
+
+    window.onload = initUI;
+</script>
+</body>
+</html>
