@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>独立試行・相対度数推移可視化シミュレーター（可変速度版）</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; margin-top: 20px; }
+        .controls { margin-bottom: 20px; }
+        button { font-size: 14px; padding: 6px 10px; margin: 3px; cursor: pointer; }
+        
+        .dashboard {
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            gap: 20px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+
+        .panel {
+            border: 1px solid #ccc;
+            background-color: #f9f9f9;
+            padding: 10px;
+            border-radius: 5px;
+        }
+
+        /* 1) 取り出した数字の表示エリア */
+        #logArea {
+            width: 800px;
+            height: 60px;
+            overflow-y: auto;
+            background-color: #fff;
+            border: 1px inset #ccc;
+            text-align: left;
+            padding: 5px;
+            font-family: monospace;
+            font-size: 14px;
+            word-wrap: break-word;
+            margin: 0 auto 20px auto;
+        }
+
+        canvas { background-color: #fff; border: 1px solid #ddd; }
+        h3 { margin-top: 0; font-size: 16px; color: #333; }
+        
+        .legend { font-size: 14px; margin-bottom: 10px; }
+        .legend-4 { color: #007BFF; font-weight: bold; }
+        .legend-5 { color: #d9534f; font-weight: bold; }
+        .legend-ideal { color: #28a745; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h2>操作Ⅰのシミュレーション（相対度数の推移）</h2>
+    
+    <div class="controls">
+        <span>試行回数を選んでください：</span><br><br>
+        <button onclick="runSimulation(5)">5回</button>
+        <button onclick="runSimulation(10)">10回</button>
+        <button onclick="runSimulation(50)">50回</button>
+        <button onclick="runSimulation(100)">100回</button>
+        <button onclick="runSimulation(500)">500回</button>
+        <button onclick="runSimulation(1000)">1000回</button>
+        <button onclick="runSimulation(5000)">5000回</button>
+        <button onclick="runSimulation(10000)">10000回</button>
+        <button onclick="runSimulation(50000)">50000回</button>
+        <button onclick="runSimulation(100000)">100000回</button>
+    </div>
+
+    <div>
+        <h3>① 取り出した数字（最新500件を表示）</h3>
+        <div id="logArea">ここに結果が表示されます</div>
+    </div>
+
+    <div class="dashboard">
+        <div class="panel">
+            <h3>② 1～5の分布（ヒストグラム）</h3>
+            <canvas id="histogramCanvas" width="300" height="300"></canvas>
+            <div id="histogramStats" style="font-size: 13px; margin-top: 5px;"></div>
+        </div>
+
+        <div class="panel">
+            <h3>③ 相対度数の推移（折れ線グラフ）</h3>
+            <div class="legend">
+                <span class="legend-4">■ 4の相対度数</span> / 
+                <span class="legend-5">■ 5の相対度数</span> / 
+                <span class="legend-ideal">-- 確率(1/5 = 0.2)</span>
+            </div>
+            <canvas id="lineChartCanvas" width="500" height="300"></canvas>
+        </div>
+    </div>
+
+    <script>
+        const histCanvas = document.getElementById('histogramCanvas');
+        const histCtx = histCanvas.getContext('2d');
+        const lineCanvas = document.getElementById('lineChartCanvas');
+        const lineCtx = lineCanvas.getContext('2d');
+        const logArea = document.getElementById('logArea');
+        const histStats = document.getElementById('histogramStats');
+
+        let animationId = null; 
+
+        // 試行回数に応じたアニメーション速度の設定
+        function getAnimConfig(totalTrials) {
+            if (totalTrials === 5) return { delay: 400, steps: 1 };
+            if (totalTrials === 10) return { delay: 200, steps: 1 };
+            if (totalTrials === 50) return { delay: 40, steps: 1 };
+            if (totalTrials === 100) return { delay: 20, steps: 1 };
+            if (totalTrials === 500) return { delay: 0, steps: 5 };
+            if (totalTrials === 1000) return { delay: 0, steps: 10 };
+            if (totalTrials === 5000) return { delay: 0, steps: 50 };
+            if (totalTrials === 10000) return { delay: 0, steps: 100 };
+            if (totalTrials === 50000) return { delay: 0, steps: 500 };  // ← 500に変更
+            if (totalTrials === 100000) return { delay: 0, steps: 2000 }; // ← 2000に変更
+            return { delay: 0, steps: 100 };
+        }
+
+        function runSimulation(totalTrials) {
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+            }
+
+            let counts = [0, 0, 0, 0, 0]; 
+            const historyCounts = []; 
+            const history4 = [];      
+            const history5 = [];      
+            const logTexts = [];      
+
+            for (let i = 1; i <= totalTrials; i++) {
+                const draw = Math.floor(Math.random() * 5) + 1;
+                counts[draw - 1]++;
+                logTexts.push(draw);
+                
+                historyCounts.push([...counts]);
+                history4.push(counts[3] / i);
+                history5.push(counts[4] / i);
+            }
+
+            const maxCount = Math.max(...counts);
+            const fixedMaxY = Math.max(maxCount * 1.2, totalTrials * 0.3);
+
+            let currentStep = 0;
+            const config = getAnimConfig(totalTrials);
+            let lastDrawTime = 0;
+
+            function animate(timestamp) {
+                if (!lastDrawTime) lastDrawTime = timestamp;
+                const elapsed = timestamp - lastDrawTime;
+
+                if (elapsed >= config.delay) {
+                    currentStep += config.steps;
+                    if (currentStep > totalTrials) {
+                        currentStep = totalTrials;
+                    }
+
+                    const idx = currentStep - 1;
+
+                    let logStr = "";
+                    if (currentStep <= 500) {
+                        logStr = logTexts.slice(0, currentStep).join(', ');
+                    } else {
+                        logStr = "...... " + logTexts.slice(currentStep - 500, currentStep).join(', ');
+                    }
+                    logArea.textContent = logStr;
+                    logArea.scrollTop = logArea.scrollHeight;
+
+                    drawHistogram(historyCounts[idx], totalTrials, fixedMaxY);
+                    drawLineChart(history4.slice(0, currentStep), history5.slice(0, currentStep), totalTrials);
+
+                    lastDrawTime = timestamp;
+                }
+
+                if (currentStep < totalTrials) {
+                    animationId = requestAnimationFrame(animate);
+                }
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        function drawHistogram(counts, totalTrials, maxY) {
+            histCtx.clearRect(0, 0, histCanvas.width, histCanvas.height);
+            
+            const barWidth = 40;
+            const spacing = 15;
+            const startX = 30;
+            const bottomY = histCanvas.height - 30;
+            const graphHeight = histCanvas.height - 50;
+
+            histCtx.fillStyle = '#333';
+            histCtx.font = '14px sans-serif';
+
+            let statsHtml = "";
+
+            for (let i = 0; i < 5; i++) {
+                const x = startX + i * (barWidth + spacing);
+                const barH = (counts[i] / maxY) * graphHeight;
+                const y = bottomY - barH;
+
+                if (i === 3) histCtx.fillStyle = '#007BFF'; 
+                else if (i === 4) histCtx.fillStyle = '#d9534f'; 
+                else histCtx.fillStyle = '#aaaaaa'; 
+
+                histCtx.fillRect(x, y, barWidth, barH);
+
+                histCtx.fillStyle = '#333';
+                histCtx.fillText((i + 1) + 'の目', x, bottomY + 20);
+                histCtx.fillText(counts[i], x + 10, y - 5);
+
+                statsHtml += `[${i+1}] ${counts[i]}回 `;
+            }
+            histStats.textContent = statsHtml;
+        }
+
+        function drawLineChart(data4, data5, totalTrials) {
+            lineCtx.clearRect(0, 0, lineCanvas.width, lineCanvas.height);
+            
+            const paddingX = 40;
+            const paddingY = 30;
+            const graphW = lineCanvas.width - paddingX * 2;
+            const graphH = lineCanvas.height - paddingY * 2;
+            const maxY = 0.5; 
+
+            lineCtx.strokeStyle = '#ccc';
+            lineCtx.lineWidth = 1;
+            lineCtx.strokeRect(paddingX, paddingY, graphW, graphH);
+
+            lineCtx.fillStyle = '#666';
+            lineCtx.font = '12px sans-serif';
+            for(let val = 0; val <= maxY; val += 0.1) {
+                const y = paddingY + graphH - (val / maxY) * graphH;
+                lineCtx.fillText(val.toFixed(1), paddingX - 25, y + 4);
+                lineCtx.beginPath();
+                lineCtx.moveTo(paddingX, y);
+                lineCtx.lineTo(paddingX + graphW, y);
+                lineCtx.strokeStyle = '#eee';
+                lineCtx.stroke();
+            }
+
+            const idealY = paddingY + graphH - (0.2 / maxY) * graphH;
+            lineCtx.beginPath();
+            lineCtx.moveTo(paddingX, idealY);
+            lineCtx.lineTo(paddingX + graphW, idealY);
+            lineCtx.strokeStyle = '#28a745';
+            lineCtx.lineWidth = 2;
+            lineCtx.setLineDash([5, 5]);
+            lineCtx.stroke();
+            lineCtx.setLineDash([]);
+            lineCtx.fillStyle = '#28a745';
+            lineCtx.fillText('0.2', paddingX - 25, idealY + 4);
+
+            function drawLine(data, color) {
+                if (data.length === 0) return;
+                lineCtx.beginPath();
+                lineCtx.strokeStyle = color;
+                lineCtx.lineWidth = 1.5;
+                for (let i = 0; i < data.length; i++) {
+                    const x = paddingX + (i / (totalTrials - 1 || 1)) * graphW;
+                    const y = paddingY + graphH - (data[i] / maxY) * graphH;
+                    if (i === 0) lineCtx.moveTo(x, y);
+                    else lineCtx.lineTo(x, y);
+                }
+                lineCtx.stroke();
+            }
+
+            drawLine(data4, '#007BFF'); 
+            drawLine(data5, '#d9534f'); 
+
+            lineCtx.fillStyle = '#333';
+            let formattedTotal = totalTrials >= 10000 ? (totalTrials / 10000) + '万回' : totalTrials + '回';
+            lineCtx.fillText('0', paddingX, paddingY + graphH + 20);
+            lineCtx.fillText(formattedTotal, paddingX + graphW - 20, paddingY + graphH + 20);
+        }
+
+        drawHistogram([0,0,0,0,0], 10, 10);
+        drawLineChart([], [], 10);
+    </script>
+</body>
+</html>
