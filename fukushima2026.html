@@ -2,101 +2,177 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>確率樹形図シミュレーター</title>
+    <title>動的・図像的樹形図シミュレーター</title>
     <style>
-        body { font-family: 'Helvetica Neue', Arial, sans-serif; background: #f8f9fa; color: #333; padding: 20px; }
-        .container { display: flex; flex-direction: column; align-items: center; }
-        .box-row { display: flex; gap: 30px; margin-bottom: 20px; }
-        .box { border: 2px solid #555; border-radius: 8px; padding: 10px; width: 140px; background: #fff; text-align: center; }
-        .ball { width: 30px; height: 30px; border-radius: 50%; display: inline-block; margin: 5px; border: 2px solid #ccc; transition: all 0.3s; }
-        .red { background-color: #ff4d4d; } .white { background-color: #ffffff; } .black { background-color: #333333; }
-        .picked { opacity: 0.1; filter: grayscale(100%); }
+        body { font-family: sans-serif; background: #f0f4f8; margin: 0; padding: 20px; text-align: center; overflow-x: hidden; }
+        .boxes { display: flex; justify-content: center; gap: 40px; margin-bottom: 20px; z-index: 10; position: relative; }
+        .box { border: 2px solid #333; background: #fff; padding: 10px; border-radius: 8px; width: 150px; }
+        .balls-container { display: flex; justify-content: space-around; margin-top: 10px; }
+        .ball { width: 30px; height: 30px; border-radius: 50%; border: 1px solid #999; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #333; font-weight: bold; background-color: #fff; position: relative; }
+        .red { background-color: #ff4d4d; color: white; }
+        .black { background-color: #333; color: white; }
+        .white { background-color: #fff; }
+        button { padding: 10px 20px; font-size: 16px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 5px; z-index: 10; position: relative; }
         
-        button { padding: 12px 24px; font-size: 1.1em; cursor: pointer; background: #28a745; color: white; border: none; border-radius: 5px; margin-bottom: 20px; }
-        button:hover { background: #218838; }
-
-        .tree-container { 
-            display: grid; 
-            grid-template-columns: repeat(3, 1fr); 
-            gap: 10px; 
-            width: 100%; 
-            max-width: 900px; 
-            font-size: 0.8em;
-            background: white;
-            padding: 15px;
-            border-radius: 10px;
-            border: 1px solid #ddd;
-        }
-        .path { padding: 4px; border-bottom: 1px solid #eee; transition: background 0.5s; }
-        .highlight { background-color: #fff3cd !important; font-weight: bold; color: #856404; border: 2px solid #ffeeba; }
-        .condition1 { color: #d9534f; } /* ①の条件用 */
+        #tree-area { position: relative; width: 800px; height: 900px; margin: 0 auto; background: #fff; border: 1px solid #ddd; border-radius: 8px; margin-top: 20px; }
+        svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+        .node-placeholder { width: 30px; height: 30px; border-radius: 50%; border: 2px dashed #ccc; position: absolute; transform: translate(-50%, -50%); }
+        
+        /* アニメーション用の動的玉 */
+        .moving-ball { position: absolute; z-index: 100; transition: all 1.5s cubic-bezier(0.4, 0, 0.2, 1); }
+        .line { stroke: #ddd; stroke-width: 2; transition: stroke 0.5s, stroke-width 0.5s; }
+        .line.active { stroke: #ff9800; stroke-width: 4; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h2>3つの箱の確率シミュレーター</h2>
-        <div class="box-row">
-            <div class="box">箱Ａ<br><div id="a-r1" class="ball red"></div><div id="a-r2" class="ball red"></div><div id="a-w" class="ball white"></div><br><small>赤1, 赤2, 白</small></div>
-            <div class="box">箱Ｂ<br><div id="b-r" class="ball red"></div><div id="b-k" class="ball black"></div><div id="b-w" class="ball white"></div><br><small>赤, 黒, 白</small></div>
-            <div class="box">箱Ｃ<br><div id="c-r" class="ball red"></div><div id="c-k" class="ball black"></div><div id="c-w" class="ball white"></div><br><small>赤, 黒, 白</small></div>
-        </div>
 
-        <button onclick="draw()">玉を取り出す！</button>
+    <h2>図像的樹形図 アニメーション</h2>
+    <div class="boxes">
+        <div class="box" id="boxA">箱Ａ<br><div class="balls-container"><div class="ball red" id="src-A-0">赤1</div><div class="ball red" id="src-A-1">赤2</div><div class="ball white" id="src-A-2">白</div></div></div>
+        <div class="box" id="boxB">箱Ｂ<br><div class="balls-container"><div class="ball red" id="src-B-0">赤</div><div class="ball black" id="src-B-1">黒</div><div class="ball white" id="src-B-2">白</div></div></div>
+        <div class="box" id="boxC">箱Ｃ<br><div class="balls-container"><div class="ball red" id="src-C-0">赤</div><div class="ball black" id="src-C-1">黒</div><div class="ball white" id="src-C-2">白</div></div></div>
+    </div>
+    
+    <button onclick="drawBalls()" id="drawBtn">玉を取り出す</button>
+    <h3 id="result-text"></h3>
 
-        <div id="tree" class="tree-container">
-            </div>
+    <div id="tree-area">
+        <svg id="tree-svg"></svg>
+        <div id="nodes-container"></div>
     </div>
 
     <script>
-        const a_items = ['赤1', '赤2', '白'];
-        const b_items = ['赤', '黒', '白'];
-        const c_items = ['赤', '黒', '白'];
-        const treeDiv = document.getElementById('tree');
+        const a_items = [{c:'red', t:'赤1'}, {c:'red', t:'赤2'}, {c:'white', t:'白'}];
+        const bc_items = [{c:'red', t:'赤'}, {c:'black', t:'黒'}, {c:'white', t:'白'}];
+        
+        const treeArea = document.getElementById('tree-area');
+        const svg = document.getElementById('tree-svg');
+        const nodesContainer = document.getElementById('nodes-container');
+        
+        const width = 800; const height = 900;
+        const x_offsets = [100, 400, 700]; // A, B, C のX座標
+        let nodesData = [[], [], []];
+        let linesData = [];
 
-        // 全パターンの生成
-        let paths = [];
-        for(let a of a_items) {
-            for(let b of b_items) {
-                for(let c of c_items) {
-                    paths.push(`${a}-${b}-${c}`);
+        // 樹形図の座標計算と描画準備
+        function initTree() {
+            // Aのノード (3個)
+            for(let i=0; i<3; i++) {
+                nodesData[0].push({ x: x_offsets[0], y: height * (i+1)/4, item: a_items[i], parent: null, id: `nodeA-${i}` });
+            }
+            // Bのノード (9個)
+            let b_idx = 0;
+            for(let i=0; i<3; i++) {
+                for(let j=0; j<3; j++) {
+                    let y = height * (b_idx+1)/10;
+                    nodesData[1].push({ x: x_offsets[1], y: y, item: bc_items[j], parent: nodesData[0][i], id: `nodeB-${b_idx}`, pIdx: i, localIdx: j });
+                    linesData.push({ x1: x_offsets[0], y1: nodesData[0][i].y, x2: x_offsets[1], y2: y, id: `lineAB-${b_idx}` });
+                    b_idx++;
                 }
             }
-        }
+            // Cのノード (27個)
+            let c_idx = 0;
+            for(let i=0; i<9; i++) {
+                for(let j=0; j<3; j++) {
+                    let y = height * (c_idx+1)/28;
+                    nodesData[2].push({ x: x_offsets[2], y: y, item: bc_items[j], parent: nodesData[1][i], id: `nodeC-${c_idx}`, pIdx: i, localIdx: j });
+                    linesData.push({ x1: x_offsets[1], y1: nodesData[1][i].y, x2: x_offsets[2], y2: y, id: `lineBC-${c_idx}` });
+                    c_idx++;
+                }
+            }
 
-        function initTree() {
-            treeDiv.innerHTML = '';
-            paths.forEach((p, index) => {
-                const div = document.createElement('div');
-                div.className = 'path';
-                div.id = 'p-' + p;
-                div.innerHTML = `${index + 1}: ${p.replace(/-/g, ' → ')}`;
-                treeDiv.appendChild(div);
+            // SVGで線を引く
+            linesData.forEach(line => {
+                let l = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                l.setAttribute("x1", line.x1); l.setAttribute("y1", line.y1);
+                l.setAttribute("x2", line.x2); l.setAttribute("y2", line.y2);
+                l.setAttribute("class", "line");
+                l.setAttribute("id", line.id);
+                svg.appendChild(l);
+            });
+
+            // プレースホルダー（点線枠）を置く
+            nodesData.flat().forEach(node => {
+                let div = document.createElement('div');
+                div.className = 'node-placeholder';
+                div.style.left = node.x + 'px';
+                div.style.top = node.y + 'px';
+                nodesContainer.appendChild(div);
             });
         }
         initTree();
 
-        function draw() {
+        let movingElements = [];
+
+        function drawBalls() {
+            document.getElementById('drawBtn').disabled = true;
+            document.getElementById('result-text').innerText = "";
+            
             // リセット
-            document.querySelectorAll('.ball').forEach(b => b.classList.remove('picked'));
-            document.querySelectorAll('.path').forEach(p => p.classList.remove('highlight'));
+            movingElements.forEach(el => el.remove());
+            movingElements = [];
+            document.querySelectorAll('.line').forEach(l => l.classList.remove('active'));
+            document.querySelectorAll('.ball').forEach(b => b.style.opacity = '1');
 
             // 抽選
-            const ra = a_items[Math.floor(Math.random() * 3)];
-            const rb = b_items[Math.floor(Math.random() * 3)];
-            const rc = c_items[Math.floor(Math.random() * 3)];
+            const a_choice = Math.floor(Math.random() * 3);
+            const b_choice = Math.floor(Math.random() * 3);
+            const c_choice = Math.floor(Math.random() * 3);
 
-            // 箱の表示更新（グレーアウト）
-            const idA = ra === '赤1' ? 'a-r1' : (ra === '赤2' ? 'a-r2' : 'a-w');
-            const idB = rb === '赤' ? 'b-r' : (rb === '黒' ? 'b-k' : 'b-w');
-            const idC = rc === '赤' ? 'c-r' : (rc === '黒' ? 'c-k' : 'c-w');
-            document.getElementById(idA).classList.add('picked');
-            document.getElementById(idB).classList.add('picked');
-            document.getElementById(idC).classList.add('picked');
+            // 該当するノードのインデックスを計算
+            const targetA_idx = a_choice;
+            const targetB_idx = targetA_idx * 3 + b_choice;
+            const targetC_idx = targetB_idx * 3 + c_choice;
 
-            // 樹形図のハイライト
-            const pathId = `p-${ra}-${rb}-${rc}`;
-            document.getElementById(pathId).classList.add('highlight');
-            document.getElementById(pathId).scrollIntoView({ behavior: 'smooth', block: 'center' });
+            const targets = [
+                { srcId: `src-A-${a_choice}`, targetNode: nodesData[0][targetA_idx], item: a_items[a_choice] },
+                { srcId: `src-B-${b_choice}`, targetNode: nodesData[1][targetB_idx], item: bc_items[b_choice] },
+                { srcId: `src-C-${c_choice}`, targetNode: nodesData[2][targetC_idx], item: bc_items[c_choice] }
+            ];
+
+            const treeRect = treeArea.getBoundingClientRect();
+
+            targets.forEach((t, index) => {
+                // 箱の中の玉をグレーアウト
+                const srcEl = document.getElementById(t.srcId);
+                const srcRect = srcEl.getBoundingClientRect();
+                srcEl.style.opacity = '0.2';
+
+                // 移動用の玉を生成
+                let mover = document.createElement('div');
+                mover.className = `ball ${t.item.c} moving-ball`;
+                mover.innerText = t.item.t;
+                
+                // 初期位置（画面全体に対する絶対座標）
+                mover.style.left = srcRect.left + 'px';
+                mover.style.top = srcRect.top + window.scrollY + 'px';
+                document.body.appendChild(mover);
+                movingElements.push(mover);
+
+                // 少し遅延させてから樹形図上の座標へ移動
+                setTimeout(() => {
+                    mover.style.left = (treeRect.left + t.targetNode.x - 15) + 'px'; // 15は玉の半径
+                    mover.style.top = (treeRect.top + window.scrollY + t.targetNode.y - 15) + 'px';
+                }, 100);
+            });
+
+            // 線をハイライト
+            setTimeout(() => {
+                document.getElementById(`lineAB-${targetB_idx}`).classList.add('active');
+                document.getElementById(`lineBC-${targetC_idx}`).classList.add('active');
+                
+                // 結果判定
+                let colors = [targets[0].item.c, targets[1].item.c, targets[2].item.c];
+                let isQ1 = (targets[0].item.c === 'red' && targets[1].item.c === 'black' && targets[2].item.c === 'white');
+                let isQ2 = (new Set(colors).size <= 2);
+                
+                let resText = `結果: A=${targets[0].item.t}, B=${targets[1].item.t}, C=${targets[2].item.t}。`;
+                if(isQ1) resText += " 【①の条件達成】";
+                if(isQ2) resText += " 【②少なくとも2個同じ達成】";
+                document.getElementById('result-text').innerText = resText;
+                
+                document.getElementById('drawBtn').disabled = false;
+            }, 1600);
         }
     </script>
 </body>
