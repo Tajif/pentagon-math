@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>確率問題シミュレーター</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; background: #f0f4f8; }
+        .box-container { display: flex; justify-content: center; gap: 20px; margin-top: 20px; }
+        .box { border: 3px solid #333; border-radius: 10px; padding: 15px; width: 120px; background: white; }
+        .ball { width: 40px; height: 40px; border-radius: 50%; display: inline-block; margin: 5px; border: 1px solid #999; }
+        .red { background-color: #ff4d4d; }
+        .white { background-color: #ffffff; }
+        .black { background-color: #333333; }
+        #result { margin-top: 30px; font-size: 1.2em; font-weight: bold; min-height: 50px; }
+        button { padding: 10px 20px; font-size: 1em; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 5px; }
+        button:hover { background: #0056b3; }
+    </style>
+</head>
+<body>
+    <h2>箱から玉を取り出すシミュレーション</h2>
+    <div class="box-container">
+        <div class="box">箱Ａ<br><div class="ball red"></div><div class="ball red"></div><div class="ball white"></div></div>
+        <div class="box">箱Ｂ<br><div class="ball red"></div><div class="ball black"></div><div class="ball white"></div></div>
+        <div class="box">箱Ｃ<br><div class="ball red"></div><div class="ball black"></div><div class="ball white"></div></div>
+    </div>
+    <br>
+    <button onclick="draw()">玉を取り出す！</button>
+    <div id="result"></div>
+
+    <script>
+        function draw() {
+            const a = ['赤1', '赤2', '白'];
+            const b = ['赤', '黒', '白'];
+            const c = ['赤', '黒', '白'];
+            
+            const ra = a[Math.floor(Math.random() * 3)];
+            const rb = b[Math.floor(Math.random() * 3)];
+            const rc = c[Math.floor(Math.random() * 3)];
+            
+            let colorA = ra.includes('赤') ? 'red' : 'white';
+            let colorB = rb === '赤' ? 'red' : (rb === '黒' ? 'black' : 'white');
+            let colorC = rc === '赤' ? 'red' : (rc === '黒' ? 'black' : 'white');
+
+            document.getElementById('result').innerHTML = `
+                Ａ: <span style="color:${colorA === 'white' ? '#999' : colorA}">${ra}</span>, 
+                Ｂ: <span style="color:${colorB === 'white' ? '#999' : colorB}">${rb}</span>, 
+                Ｃ: <span style="color:${colorC === 'white' ? '#999' : colorC}">${rc}</span><br>
+                ${(ra.includes('赤') && rb==='黒' && rc==='白') ? '★①の条件達成！' : ''}
+                ${(new Set([ra.replace(/[0-9]/g,''), rb, rc]).size <= 2) ? '★②「少なくとも2個同じ色」達成！' : ''}
+            `;
+        }
+    </script>
+</body>
+</html>
