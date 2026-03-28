@@ -278,10 +278,13 @@
             const hasSlash2 = i % selectedB === 0;
 
             setTimeout(() => {
+                // マークが1つ（／または＼のどちらか片方のみ）
                 if ((hasSlash1 && !hasSlash2) || (!hasSlash1 && hasSlash2)) {
                     marker.innerText = '●';
                     marker.classList.add('active-marker');
-                } else if (hasSlash1 && hasSlash2) {
+                } 
+                // マークが2つ（X）、またはマークなし
+                else {
                     marker.innerText = '○';
                     marker.classList.add('active-marker');
                 }
