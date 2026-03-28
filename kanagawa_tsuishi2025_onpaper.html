@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>実戦資料「マーク作戦」</title>
+<style>
+    body { font-family: sans-serif; background-color: #f9f9f9; text-align: center; padding: 20px; margin: 0;}
+    h1 { color: #333; margin-bottom: 15px; margin-top: 10px; }
+    
+    .demo-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin: 10px auto;
+        padding: 20px;
+        background-color: #fff;
+        border-radius: 12px;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        width: max-content;
+    }
+
+    /* コントロールパネル */
+    .controls { margin-bottom: 20px; text-align: left; width: 100%; border-bottom: 2px dashed #ddd; padding-bottom: 15px;}
+    .control-label { font-weight: bold; margin-bottom: 10px; display: block; color: #111;}
+    .dice-group { margin-bottom: 10px; }
+    button.dice-btn { padding: 8px 16px; font-size: 16px; margin: 0 5px; cursor: pointer; border-radius: 4px; border: 1px solid #ccc; background-color: #fff; transition: background-color 0.2s; }
+    button.dice-btn:hover { background-color: #e0e0e0; }
+    button.selected { background-color: #1e90ff; color: white; border-color: #1e90ff; }
+    button.selected-red { background-color: #dc143c; color: white; border-color: #dc143c; }
+    button:disabled { cursor: not-allowed; opacity: 0.5; }
+    
+    .action-btn { 
+        padding: 10px 20px; font-size: 16px; font-weight: bold;
+        margin-top: 10px; border: 2px solid #555; background-color: #f0f0f0; color: #333;
+        border-radius: 4px; cursor: pointer;
+    }
+    .action-btn:disabled { opacity: 0.4; cursor: not-allowed; border-color: #999; }
+
+    /* 石（数字メモ）の並び */
+    .stone-memo-row {
+        display: flex;
+        gap: 15px;
+        margin-bottom: 20px;
+        margin-top: 10px;
+        position: relative;
+    }
+
+    .stone-memo {
+        width: 60px; height: 60px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 28px; font-weight: bold;
+        background-color: transparent; color: #333;
+        position: relative;
+        border: none;
+    }
+
+    /* 【操作1】斜線マーク1 (青、／) */
+    .mark-slash1::after {
+        content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+        background: linear-gradient(135deg, transparent 48%, #1e90ff 50%, transparent 52%);
+        transform: scaleY(0); transform-origin: top; transition: transform 0.5s ease-out;
+    }
+    .mark-slash1.active-op1::after { transform: scaleY(1); }
+
+    /* 【操作2】斜線マーク2 (赤、＼) */
+    .mark-slash2::before {
+        content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+        background: linear-gradient(225deg, transparent 48%, #dc143c 50%, transparent 52%);
+        transform: scaleY(0); transform-origin: top; transition: transform 0.5s ease-out;
+    }
+    .mark-slash2.active-op2::before { transform: scaleY(1); }
+
+    /* 判定結果マーカー (グレー、○/●) */
+    .stone-result-marker {
+        width: 60px; height: 20px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 24px; font-weight: bold; color: #888;
+        margin-top: -5px; opacity: 0; transition: opacity 0.5s;
+    }
+    .stone-result-marker.active-marker { opacity: 1; }
+
+    /* 解説テキストエリア（履歴追加型） */
+    .explanation-box {
+        width: 600px;
+        background-color: #f8fcf8;
+        padding: 15px;
+        border-radius: 8px;
+        border: 1px solid #cce5cc;
+        text-align: left;
+        margin-top: 10px;
+        min-height: 200px;
+    }
+    .exp-step {
+        font-size: 16px; line-height: 1.6; color: #333;
+        margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px dashed #ddd;
+    }
+    .exp-step:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+    .step-title { font-weight: bold; color: #2e7d32; display: block; margin-bottom: 4px;}
+    .step-highlight { font-weight: bold; color: #d35400; }
+
+</style>
+</head>
+<body>
+
+    <h1>マーク作戦</h1>
+
+    <div class="demo-container">
+        
+        <div class="controls">
+            <span class="control-label">さいころの目を入力しよう（両方選ぶと自動スタート）</span>
+            <div class="dice-group">
+                <span>大きいさいころ a: </span>
+                <button class="dice-btn" id="a-1" onclick="setA(1)">1</button><button class="dice-btn" id="a-2" onclick="setA(2)">2</button><button class="dice-btn" id="a-3" onclick="setA(3)">3</button><button class="dice-btn" id="a-4" onclick="setA(4)">4</button><button class="dice-btn" id="a-5" onclick="setA(5)">5</button><button class="dice-btn" id="a-6" onclick="setA(6)">6</button>
+            </div>
+            <div class="dice-group">
+                <span>小さいさいころ b: </span>
+                <button class="dice-btn" id="b-1" onclick="setB(1)">1</button><button class="dice-btn" id="b-2" onclick="setB(2)">2</button><button class="dice-btn" id="b-3" onclick="setB(3)">3</button><button class="dice-btn" id="b-4" onclick="setB(4)">4</button><button class="dice-btn" id="b-5" onclick="setB(5)">5</button><button class="dice-btn" id="b-6" onclick="setB(6)">6</button>
+            </div>
+        </div>
+
+        <div class="stone-memo-row" id="stone-row">
+            </div>
+
+        <div class="explanation-box" id="explanation-box">
+            </div>
+
+        <button class="action-btn" id="btn-reset" onclick="resetAll()" disabled>リセット</button>
+
+    </div>
+
+<script>
+    const stoneRow = document.getElementById('stone-row');
+    const expBox = document.getElementById('explanation-box');
+    const btnReset = document.getElementById('btn-reset');
+    
+    let selectedA = 0;
+    let selectedB = 0;
+    let isAnimating = false;
+
+    // 石（数字メモ）と結果マーカーの生成
+    function initStones() {
+        stoneRow.innerHTML = '';
+        for (let i = 1; i <= 9; i++) {
+            const container = document.createElement('div');
+            container.style.display = 'flex';
+            container.style.flexDirection = 'column';
+            container.style.alignItems = 'center';
+
+            const stone = document.createElement('div');
+            stone.className = 'stone-memo mark-slash1 mark-slash2';
+            stone.id = `memo-${i}`;
+            stone.innerText = i;
+            container.appendChild(stone);
+
+            const marker = document.createElement('div');
+            marker.className = 'stone-result-marker';
+            marker.id = `marker-${i}`;
+            container.appendChild(marker);
+
+            stoneRow.appendChild(container);
+        }
+    }
+
+    // 手順テキストの追記
+    function appendExp(htmlContent) {
+        const div = document.createElement('div');
+        div.className = 'exp-step';
+        div.innerHTML = htmlContent;
+        expBox.appendChild(div);
+        // 自動スクロール
+        expBox.scrollTop = expBox.scrollHeight;
+    }
+
+    function initExp() {
+        expBox.innerHTML = '';
+        appendExp(`<span class="step-title">【手順1】</span>まず最初に計算用紙に１～９の数字を書こう。`);
+    }
+
+    // 入力制御
+    function setA(val) {
+        if (isAnimating) return;
+        selectedA = val;
+        for (let i = 1; i <= 6; i++) {
+            document.getElementById(`a-${i}`).classList.remove('selected');
+        }
+        document.getElementById(`a-${val}`).classList.add('selected');
+        checkAutoStart();
+    }
+    
+    function setB(val) {
+        if (isAnimating) return;
+        selectedB = val;
+        for (let i = 1; i <= 6; i++) {
+            document.getElementById(`b-${i}`).classList.remove('selected-red');
+        }
+        document.getElementById(`b-${val}`).classList.add('selected-red');
+        checkAutoStart();
+    }
+
+    function checkAutoStart() {
+        if (selectedA > 0 && selectedB > 0 && !isAnimating) {
+            startDemo();
+        }
+    }
+
+    // 全てリセット
+    function resetAll() {
+        selectedA = 0;
+        selectedB = 0;
+        isAnimating = false;
+        
+        for (let i = 1; i <= 6; i++) {
+            document.getElementById(`a-${i}`).classList.remove('selected');
+            document.getElementById(`a-${i}`).disabled = false;
+            document.getElementById(`b-${i}`).classList.remove('selected-red');
+            document.getElementById(`b-${i}`).disabled = false;
+        }
+        
+        btnReset.disabled = true;
+        initStones();
+        initExp();
+    }
+
+    // シミュレーション実行
+    function startDemo() {
+        isAnimating = true;
+        btnReset.disabled = true;
+        
+        // 入力ボタンを無効化
+        for (let i = 1; i <= 6; i++) {
+            document.getElementById(`a-${i}`).disabled = true;
+            document.getElementById(`b-${i}`).disabled = true;
+        }
+        
+        // 少し間を置いて操作1へ
+        setTimeout(runOp1, 500);
+    }
+
+    function runOp1() {
+        appendExp(`<span class="step-title">【手順2】操作1（大きい目：${selectedA}）</span>大きい目が${selectedA}なので、<span class="step-highlight">${selectedA}以上の数字</span>にえんぴつで「／（青の斜線）」を引きます。`);
+        
+        for (let i = 1; i <= 9; i++) {
+            if (i >= selectedA) {
+                const stone = document.getElementById(`memo-${i}`);
+                setTimeout(() => {
+                    stone.classList.add('active-op1');
+                }, (i - selectedA) * 200);
+            }
+        }
+
+        setTimeout(runOp2, (9 - selectedA) * 200 + 1000);
+    }
+
+    function runOp2() {
+        appendExp(`<span class="step-title">【手順3】操作2（小さい目：${selectedB}）</span>次に小さい目が${selectedB}なので、<span class="step-highlight">${selectedB}の倍数</span>に「＼（赤の斜線）」を描きます。`);
+        
+        for (let i = 1; i <= 9; i++) {
+            if (i % selectedB === 0) {
+                const stone = document.getElementById(`memo-${i}`);
+                setTimeout(() => {
+                    stone.classList.add('active-op2');
+                }, (i / selectedB) * 300);
+            }
+        }
+        
+        setTimeout(runJudge, (9 / selectedB) * 300 + 1000);
+    }
+
+    function runJudge() {
+        appendExp(`<span class="step-title">【手順4】判定結果（●/○）を出す！</span>マークの状態から、結果の●（黒）か○（白）を判定します。<br>
+            ・マークなし ＝ 判定：○<br>
+            ・<span class="step-highlight">マークが1つ（／か＼だけ）＝ 判定：●（黒）</span><br>
+            ・マークが2つ（X）＝ 判定：○（白に戻る）`);
+
+        for (let i = 1; i <= 9; i++) {
+            const marker = document.getElementById(`marker-${i}`);
+            const hasSlash1 = i >= selectedA;
+            const hasSlash2 = i % selectedB === 0;
+
+            setTimeout(() => {
+                if ((hasSlash1 && !hasSlash2) || (!hasSlash1 && hasSlash2)) {
+                    marker.innerText = '●';
+                    marker.classList.add('active-marker');
+                } else if (hasSlash1 && hasSlash2) {
+                    marker.innerText = '○';
+                    marker.classList.add('active-marker');
+                }
+            }, i * 200);
+        }
+
+        setTimeout(() => {
+            isAnimating = false;
+            btnReset.disabled = false; // アニメーション終了後にリセット可能に
+        }, 9 * 200 + 800);
+    }
+
+    // 初期化
+    initStones();
+    initExp();
+
+</script>
+</body>
+</html>
