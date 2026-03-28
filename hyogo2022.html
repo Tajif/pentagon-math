@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>正四角すい 確率シミュレーター</title>
+<style>
+  body { font-family: sans-serif; text-align: center; }
+  .container { display: flex; justify-content: center; gap: 20px; margin-top: 20px; }
+  .bag { border: 2px solid #333; padding: 10px; border-radius: 8px; width: 120px;}
+  select { font-size: 1.2em; padding: 5px; width: 100%;}
+  canvas { border: 1px solid #ccc; background-color: #f9f9f9; margin-top: 20px;}
+  #result { font-size: 1.5em; font-weight: bold; margin-top: 10px; color: #d32f2f;}
+</style>
+</head>
+<body>
+
+<h2>確率シミュレーター：どんな図形ができるかな？</h2>
+
+<div class="container">
+  <div class="bag">
+    <h3>袋 1</h3>
+    <select id="bag1" onchange="draw()">
+      <option value="A">A</option>
+      <option value="B">B</option>
+      <option value="C">C</option>
+      <option value="D">D</option>
+      <option value="E">E</option>
+    </select>
+  </div>
+  <div class="bag">
+    <h3>袋 2</h3>
+    <select id="bag2" onchange="draw()">
+      <option value="B">B</option>
+      <option value="C" selected>C</option>
+      <option value="D">D</option>
+    </select>
+  </div>
+  <div class="bag">
+    <h3>袋 3</h3>
+    <select id="bag3" onchange="draw()">
+      <option value="B">B</option>
+      <option value="C">C</option>
+      <option value="D" selected>D</option>
+    </select>
+  </div>
+</div>
+
+<div id="result">図形Ｘ：三角形</div>
+<canvas id="canvas" width="480" height="320"></canvas>
+
+<script>
+// 【点E独立型・時計回り回転座標】
+// 底面BCDEを時計回りに回転させ、点Eが線分ABと重ならないよう再配置
+// 中心点(240, 180)を維持した正確な平行四辺形投影
+const points = {
+  'A': {x: 240, y: 40},
+  'B': {x: 100, y: 200},
+  'C': {x: 260, y: 250},
+  'D': {x: 380, y: 160},
+  'E': {x: 220, y: 110}
+};
+
+function draw() {
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  ctx.strokeStyle = '#aaa';
+  ctx.lineWidth = 2;
+
+  // 奥の辺（見えない部分）を点線で描画
+  // 回転後もEは奥側に位置するため、Eに繋がる辺を点線とする
+  ctx.setLineDash([5, 5]);
+  const dashedEdges = [['A','E'], ['D','E'], ['E','B']];
+  dashedEdges.forEach(edge => {
+    ctx.beginPath();
+    ctx.moveTo(points[edge[0]].x, points[edge[0]].y);
+    ctx.lineTo(points[edge[1]].x, points[edge[1]].y);
+    ctx.stroke();
+  });
+
+  // 手前の辺（見える部分）を実線で描画
+  ctx.setLineDash([]);
+  const solidEdges = [['A','B'], ['A','C'], ['A','D'], ['B','C'], ['C','D']];
+  solidEdges.forEach(edge => {
+    ctx.beginPath();
+    ctx.moveTo(points[edge[0]].x, points[edge[0]].y);
+    ctx.lineTo(points[edge[1]].x, points[edge[1]].y);
+    ctx.stroke();
+  });
+  
+  // 頂点ラベルの描画
+  ctx.fillStyle = '#666';
+  ctx.font = 'bold 18px Arial';
+  ctx.fillText('A', points['A'].x - 6, points['A'].y - 12);
+  ctx.fillText('B', points['B'].x - 20, points['B'].y + 5);
+  ctx.fillText('C', points['C'].x + 10, points['C'].y + 15); // Cが最下部に来るため調整
+  ctx.fillText('D', points['D'].x + 10, points['D'].y + 5);
+  ctx.fillText('E', points['E'].x - 20, points['E'].y - 5);
+
+  // 選択されたカードを取得
+  const p1 = document.getElementById('bag1').value;
+  const p2 = document.getElementById('bag2').value;
+  const p3 = document.getElementById('bag3').value;
+  
+  // 重複を排除してユニークな頂点を取得
+  const selectedPoints = [...new Set([p1, p2, p3])];
+  
+  const resultText = document.getElementById('result');
+
+  // 選択された図形の描画設定
+  ctx.strokeStyle = '#d32f2f';
+  ctx.fillStyle = 'rgba(211, 47, 47, 0.4)';
+  ctx.lineWidth = 4;
+  ctx.setLineDash([]); 
+
+  if (selectedPoints.length === 1) {
+    resultText.innerText = `図形Ｘ：点 ${selectedPoints[0]}`;
+    ctx.beginPath();
+    ctx.arc(points[selectedPoints[0]].x, points[selectedPoints[0]].y, 6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  } else if (selectedPoints.length === 2) {
+    resultText.innerText = `図形Ｘ：線分 ${selectedPoints[0]}${selectedPoints[1]}`;
+    ctx.beginPath();
+    ctx.moveTo(points[selectedPoints[0]].x, points[selectedPoints[0]].y);
+    ctx.lineTo(points[selectedPoints[1]].x, points[selectedPoints[1]].y);
+    ctx.stroke();
+  } else if (selectedPoints.length === 3) {
+    resultText.innerText = `図形Ｘ：三角形 ${selectedPoints[0]}${selectedPoints[1]}${selectedPoints[2]}`;
+    ctx.beginPath();
+    ctx.moveTo(points[selectedPoints[0]].x, points[selectedPoints[0]].y);
+    ctx.lineTo(points[selectedPoints[1]].x, points[selectedPoints[1]].y);
+    ctx.lineTo(points[selectedPoints[2]].x, points[selectedPoints[2]].y);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+  }
+}
+
+// 初期描画
+draw();
+</script>
+</body>
+</html>
