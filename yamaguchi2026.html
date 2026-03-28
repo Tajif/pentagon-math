@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>円周上の三角形作図・判定ツール（条件別分類機能付き）</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; margin-top: 20px; }
+        .container { 
+            display: flex; 
+            justify-content: center; 
+            align-items: flex-start; 
+            gap: 40px; 
+            margin-top: 20px;
+        }
+        /* 二次元表のスタイル */
+        table { border-collapse: collapse; margin-top: 10px; }
+        th, td { 
+            border: 2px solid #333; 
+            width: 80px; 
+            height: 60px; 
+            text-align: center; 
+            font-size: 18px;
+        }
+        th { background-color: #eee; cursor: default; }
+        td { cursor: pointer; transition: background-color 0.2s; line-height: 1.2; }
+        td:hover { background-color: #f0f8ff; }
+        
+        /* 判定後のマスのスタイル（パターン別に色と文字を変える） */
+        .success-cell-1 { background-color: #ffcccc; font-weight: bold; color: #d9534f; }
+        .success-cell-2 { background-color: #ffe0b2; font-weight: bold; color: #e65100; }
+        .fail-cell { background-color: #e0f7fa; color: #00838f; }
+        
+        .pattern-label { font-size: 12px; display: block; margin-top: 4px; }
+
+        canvas { border: 1px solid #ccc; background-color: #f9f9f9; }
+        #result { font-size: 18px; font-weight: bold; height: 50px; margin-bottom: 10px; line-height: 1.4;}
+        .instruction { font-size: 14px; color: #666; margin-bottom: 20px;}
+    </style>
+</head>
+<body>
+    <h2>箱の組み合わせ検証（二等辺三角形のパターン判定）</h2>
+    <div class="instruction">表のマス目をクリックすると、選んだ3つの頂点が強調され、二等辺三角形の種類が判定されます。</div>
+    
+    <div id="result">マス目をクリックして調べてみよう</div>
+    
+    <div class="container">
+        <div>
+            <table id="combinationTable">
+                <tr>
+                    <th> \ </th>
+                    <th>E</th>
+                    <th>F</th>
+                    <th>G</th>
+                    <th>H</th>
+                </tr>
+                </table>
+        </div>
+        
+        <div>
+            <canvas id="myCanvas" width="400" height="400"></canvas>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('myCanvas');
+        const ctx = canvas.getContext('2d');
+        const cx = 200; 
+        const cy = 200; 
+        const r = 140;  
+        
+        const points = {};
+        const labels = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+        for (let i = 0; i < 8; i++) {
+            const angle = -Math.PI / 2 + (i * Math.PI / 4);
+            points[labels[i]] = { x: cx + r * Math.cos(angle), y: cy + r * Math.sin(angle), index: i };
+        }
+
+        const box1 = ['B', 'C', 'D'];
+        const box2 = ['E', 'F', 'G', 'H'];
+
+        function initTable() {
+            const table = document.getElementById('combinationTable');
+            for (let v1 of box1) {
+                const tr = document.createElement('tr');
+                const th = document.createElement('th');
+                th.textContent = v1;
+                tr.appendChild(th);
+                
+                for (let v2 of box2) {
+                    const td = document.createElement('td');
+                    td.textContent = `${v1},${v2}`;
+                    td.onclick = () => handleCellClick(td, v1, v2);
+                    tr.appendChild(td);
+                }
+                table.appendChild(tr);
+            }
+        }
+
+        // 選択３頂点・動的ハイライト機能
+        function drawBase(activeV1 = null, activeV2 = null) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            ctx.beginPath();
+            ctx.arc(cx, cy, r, 0, Math.PI * 2);
+            ctx.strokeStyle = '#333'; ctx.lineWidth = 2; ctx.stroke();
+            
+            ctx.beginPath();
+            ctx.arc(cx, cy, 3, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#000'; ctx.font = '16px sans-serif';
+            ctx.fillText('O', cx + 5, cy + 15);
+
+            for (let label in points) {
+                const pt = points[label];
+                const offset = 24; 
+                const angle = -Math.PI / 2 + (pt.index * Math.PI / 4);
+                const textX = pt.x + offset * Math.cos(angle);
+                const textY = pt.y + offset * Math.sin(angle);
+
+                const isActive = (label === 'A' || label === activeV1 || label === activeV2);
+
+                if (isActive) {
+                    ctx.beginPath(); ctx.arc(textX, textY - 6, 16, 0, Math.PI * 2);
+                    ctx.fillStyle = '#ffeb3b'; ctx.fill();
+
+                    ctx.font = 'bold 22px sans-serif'; ctx.fillStyle = '#d9534f';
+                    ctx.fillText(label, textX - 8, textY + 2);
+
+                    ctx.beginPath(); ctx.arc(pt.x, pt.y, 6, 0, Math.PI * 2);
+                    ctx.fillStyle = '#d9534f'; ctx.fill();
+                } else {
+                    ctx.font = '16px sans-serif'; ctx.fillStyle = '#000';
+                    ctx.fillText(label, textX - 5, textY + 5);
+
+                    ctx.beginPath(); ctx.arc(pt.x, pt.y, 4, 0, Math.PI * 2);
+                    ctx.fillStyle = '#000'; ctx.fill();
+                }
+            }
+        }
+
+        function getDistance(p1, p2) {
+            let diff = Math.abs(points[p1].index - points[p2].index);
+            if (diff > 4) diff = 8 - diff;
+            return diff;
+        }
+
+        function handleCellClick(td, v1, v2) {
+            drawBase(v1, v2);
+            
+            ctx.beginPath();
+            ctx.moveTo(points['A'].x, points['A'].y);
+            ctx.lineTo(points[v1].x, points[v1].y);
+            ctx.lineTo(points[v2].x, points[v2].y);
+            ctx.closePath();
+            ctx.strokeStyle = '#007BFF'; ctx.lineWidth = 3; ctx.stroke();
+            ctx.fillStyle = 'rgba(0, 123, 255, 0.2)'; ctx.fill();
+
+            // 判定ロジック
+            const distAV1 = getDistance('A', v1);
+            const distV1V2 = getDistance(v1, v2);
+            const distV2A = getDistance(v2, 'A');
+
+            // 二等辺三角形・成立条件別（パターン1/2）分類表示機能
+            const isPattern1 = (distAV1 === distV2A);
+            const isPattern2 = (distAV1 === distV1V2 || distV2A === distV1V2);
+            
+            const resultDiv = document.getElementById('result');
+
+            if (isPattern1) {
+                td.innerHTML = '〇<br><span class="pattern-label">パターン1</span>';
+                td.className = 'success-cell-1';
+                resultDiv.innerHTML = `<span style="color:#d9534f">二等辺三角形です！【パターン１】<br>（頂点Aから出ている2辺の長さが等しい）</span><br><span style="font-size:14px; color:#666;">（3辺のマス目間隔: ${distAV1}, ${distV1V2}, ${distV2A}）</span>`;
+            } else if (isPattern2) {
+                td.innerHTML = '〇<br><span class="pattern-label">パターン2</span>';
+                td.className = 'success-cell-2';
+                resultDiv.innerHTML = `<span style="color:#e65100">二等辺三角形です！【パターン２】<br>（選んだ2点間の長さが、頂点Aからの長さのどちらかと等しい）</span><br><span style="font-size:14px; color:#666;">（3辺のマス目間隔: ${distAV1}, ${distV1V2}, ${distV2A}）</span>`;
+            } else {
+                td.innerHTML = '×';
+                td.className = 'fail-cell';
+                resultDiv.innerHTML = `<span style="color:#00838f">二等辺三角形ではありません。</span><br><span style="font-size:14px; color:#666;">（3辺のマス目間隔: ${distAV1}, ${distV1V2}, ${distV2A}）</span>`;
+            }
+        }
+
+        initTable();
+        drawBase();
+    </script>
+</body>
+</html>
