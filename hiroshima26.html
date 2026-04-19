@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>さいころ確率判定シミュレーター（○×記録版）</title>
+    <style>
+        body { font-family: 'Helvetica Neue', Arial, sans-serif; display: flex; flex-direction: column; align-items: center; padding: 20px; background-color: #f4f7f6; color: #333; }
+        h1 { font-size: 1.4rem; margin-bottom: 20px; color: #2c3e50; }
+        
+        /* 二次元表のスタイル */
+        table { border-collapse: collapse; margin-bottom: 20px; background: white; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border-radius: 8px; overflow: hidden; }
+        th, td { border: 1px solid #dfe6e9; width: 55px; height: 50px; text-align: center; cursor: pointer; transition: all 0.2s; font-size: 0.9rem; }
+        th { background-color: #f8f9fa; color: #636e72; font-weight: 600; }
+        td:hover { background-color: #edf2f7; }
+        td.selected { outline: 3px solid #3498db; outline-offset: -3px; background-color: #ebf8ff; }
+        
+        /* 記号のスタイル */
+        .maru { color: #e74c3c; font-weight: bold; font-size: 1.4rem; }
+        .batsu { color: #bdc3c7; font-size: 1.2rem; }
+
+        /* 結果表示エリア */
+        #result-area { margin-bottom: 20px; padding: 15px; border-radius: 12px; background: white; border: 1px solid #e2e8f0; width: 450px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .judge-ok { color: #e74c3c; font-weight: bold; font-size: 1.2rem; }
+        .judge-ng { color: #7f8c8d; font-size: 1.2rem; }
+
+        /* グラフのスタイル */
+        #graph-container { position: relative; background: white; padding: 25px; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        .axis { stroke: #2d3436; stroke-width: 2; }
+        .grid { stroke: #f1f2f6; stroke-width: 1; }
+        .line-main { stroke: #2d3436; stroke-width: 2; fill: none; }
+        .region-a { fill: #dfe6e9; fill-opacity: 0.8; stroke: none; }
+        .point-p { transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+    </style>
+</head>
+<body>
+
+    <h1>さいころと領域Aの判定シミュレーター</h1>
+
+    <table id="dice-table">
+        <thead>
+            <tr>
+                <th>a ＼ b</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th>
+            </tr>
+        </thead>
+        <tbody id="table-body"></tbody>
+    </table>
+
+    <div id="result-area">
+        <div id="status-text" style="color:#95a5a6;">マス目をクリックして判定してください</div>
+        <div id="coord-text" style="margin-top:10px; font-size: 1.1rem; height: 1.5em;"></div>
+    </div>
+
+    <div id="graph-container">
+        <svg id="graph" width="450" height="450" viewBox="-60 -60 560 560">
+            <g id="grid-layer"></g>
+            <line x1="0" y1="400" x2="450" y2="400" class="axis" />
+            <line x1="0" y1="450" x2="0" y2="0" class="axis" />
+            <text x="440" y="430" font-size="16">x</text>
+            <text x="-30" y="20" font-size="16">y</text>
+            <text x="-25" y="425" font-size="16">O</text>
+
+            <path id="region-path" class="region-a" />
+            
+            <path id="curve-1" class="line-main" />
+            <line id="line-2" x1="70" y1="0" x2="70" y2="400" class="line-main" />
+            <line id="line-3" x1="350" y1="0" x2="350" y2="400" class="line-main" />
+
+            <circle id="point-p" cx="-100" cy="-100" r="8" class="point-p" stroke="white" stroke-width="2" />
+        </svg>
+    </div>
+
+<script>
+    const scale = 70; 
+    const offset = 400; 
+
+    // 表の自動生成
+    const tbody = document.getElementById('table-body');
+    for (let a = 1; a <= 6; a++) {
+        const tr = document.createElement('tr');
+        const th = document.createElement('th');
+        th.innerText = a;
+        tr.appendChild(th);
+        for (let b = 1; b <= 6; b++) {
+            const td = document.createElement('td');
+            td.innerText = `${a},${b}`;
+            td.onclick = () => selectCell(a, b, td);
+            tr.appendChild(td);
+        }
+        tbody.appendChild(tr);
+    }
+
+    function initGraph() {
+        const gridLayer = document.getElementById('grid-layer');
+        for (let i = 1; i <= 6; i++) {
+            gridLayer.innerHTML += `<line x1="${i*scale}" y1="0" x2="${i*scale}" y2="400" class="grid" />`;
+            gridLayer.innerHTML += `<line x1="0" y1="${offset - i*scale}" x2="450" y2="${offset - i*scale}" class="grid" />`;
+            gridLayer.innerHTML += `<text x="${i*scale - 5}" y="425" font-size="14" fill="#636e72">${i}</text>`;
+            gridLayer.innerHTML += `<text x="-30" y="${offset - i*scale + 5}" font-size="14" fill="#636e72">${i}</text>`;
+        }
+
+        // y = 1/x
+        let d = "M " + (0.16 * scale) + " " + (offset - (1/0.16) * scale);
+        for (let x = 0.16; x <= 6.1; x += 0.1) {
+            d += ` L ${x * scale} ${offset - (1/x) * scale}`;
+        }
+        document.getElementById('curve-1').setAttribute('d', d);
+
+        // 領域A
+        let ad = `M ${1 * scale} ${offset}`;
+        for (let x = 1; x <= 5; x += 0.1) {
+            ad += ` L ${x * scale} ${offset - (1/x) * scale}`;
+        }
+        ad += ` L ${5 * scale} ${offset} Z`;
+        document.getElementById('region-path').setAttribute('d', ad);
+    }
+
+    function selectCell(a, b, el) {
+        document.querySelectorAll('td').forEach(td => td.classList.remove('selected'));
+        el.classList.add('selected');
+
+        // 計算ロジック
+        const px = Math.abs(a - b);
+        const py = b / a;
+        
+        // 判定条件: 1 ≦ x ≦ 5 かつ y ≦ 1/x
+        const isInside = (px >= 1 && px <= 5) && (py <= (1 / px));
+
+        // 表の表示を書き換え
+        if (isInside) {
+            el.innerHTML = '<span class="maru">○</span>';
+        } else {
+            el.innerHTML = '<span class="batsu">×</span>';
+        }
+
+        // テキスト表示
+        const py_disp = b % a === 0 ? py : `${b}/${a}`;
+        document.getElementById('coord-text').innerHTML = `点Pの座標: <b>(${px}, ${py_disp})</b>`;
+        const status = document.getElementById('status-text');
+        status.innerHTML = isInside ? '<span class="judge-ok">● 領域A の中にあります</span>' : '<span class="judge-ng">× 領域A の外です</span>';
+
+        // グラフへ反映
+        const circle = document.getElementById('point-p');
+        circle.setAttribute('cx', px * scale);
+        circle.setAttribute('cy', offset - py * scale);
+        circle.setAttribute('fill', isInside ? '#e74c3c' : '#3498db');
+    }
+
+    initGraph();
+</script>
+</body>
+</html>
