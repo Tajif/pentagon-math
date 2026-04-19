@@ -3,94 +3,143 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>鉛筆と箱のアニメーション解説</title>
+    <title>鉛筆と箱のシミュレーター Ver.2</title>
     <style>
         :root {
             --pencil-color: #ffd700;
             --highlight-color: #ff4757;
+            --accent-blue: #0984e3;
         }
         body { font-family: 'Helvetica Neue', Arial, sans-serif; background-color: #f0f2f5; display: flex; flex-direction: column; align-items: center; padding: 20px; }
         
-        /* さいころエリア */
-        #dice-container { width: 80px; height: 80px; background: white; border: 3px solid #333; border-radius: 15px; display: flex; align-items: center; justify-content: center; font-size: 40px; font-weight: bold; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        /* モード切替ボタン */
+        .mode-selector { margin-bottom: 20px; display: flex; gap: 10px; }
+        .mode-btn { padding: 10px 20px; cursor: pointer; border: 2px solid var(--accent-blue); background: white; border-radius: 20px; font-weight: bold; }
+        .mode-btn.active { background: var(--accent-blue); color: white; }
+
+        /* さいころ・表エリア */
+        #dice-area { display: flex; flex-direction: column; align-items: center; }
+        #dice-container { width: 60px; height: 60px; background: white; border: 3px solid #333; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 30px; font-weight: bold; margin-bottom: 15px; }
         
+        /* 36マス表 */
+        #table-area { display: none; margin-bottom: 20px; }
+        .matrix-table { border-collapse: collapse; background: white; font-size: 12px; }
+        .matrix-table th, .matrix-table td { border: 1px solid #ccc; padding: 5px; text-align: center; }
+        .matrix-table th { background: #eee; }
+        .cell-btn { width: 35px; height: 35px; cursor: pointer; background: #fff; border: 1px solid #ddd; transition: 0.2s; border-radius: 4px; }
+        .cell-btn:hover { background: #ffeaa7; }
+        .cell-btn.active { background: var(--highlight-color); color: white; }
+
         /* 箱の並び */
-        .boxes-wrapper { display: flex; gap: 15px; margin-bottom: 40px; perspective: 1000px; }
-        .box { width: 90px; height: 120px; border: 3px solid #444; background: #fff; border-radius: 8px; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; padding-bottom: 10px; transition: transform 0.3s; }
+        .boxes-wrapper { display: flex; gap: 10px; margin-bottom: 30px; }
+        .box { width: 85px; height: 110px; border: 3px solid #444; background: #fff; border-radius: 8px; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; padding-bottom: 10px; }
         .box.highlight { animation: blink 0.4s 2; border-color: var(--highlight-color); }
         @keyframes blink { 0% { background: #fff; } 50% { background: #ff7675; } 100% { background: #fff; } }
         
-        .box-label { position: absolute; top: -30px; font-weight: bold; font-size: 18px; }
-        .count-display { font-size: 20px; font-weight: bold; color: #2d3436; margin-top: 5px; }
+        .box-label { position: absolute; top: -25px; font-weight: bold; font-size: 14px; }
+        .count-display { font-size: 18px; font-weight: bold; color: #2d3436; margin-top: 5px; }
         
-        /* 鉛筆の描画 */
-        .pencil-container { display: flex; flex-wrap: wrap; justify-content: center; align-content: flex-end; width: 80%; height: 60px; gap: 2px; }
-        .pencil { width: 6px; height: 30px; background: var(--pencil-color); border: 1px solid #d4af37; border-radius: 2px; position: relative; }
-        .pencil::after { content: ''; position: absolute; top: -5px; left: 0; border-left: 3px solid transparent; border-right: 3px solid transparent; border-bottom: 5px solid #000; }
-        .pencil.pale { opacity: 0.2; }
+        .pencil-container { display: flex; flex-wrap: wrap; justify-content: center; align-content: flex-end; width: 80%; height: 50px; gap: 2px; }
+        .pencil { width: 5px; height: 25px; background: var(--pencil-color); border: 1px solid #d4af37; border-radius: 1px; position: relative; }
+        .pencil::after { content: ''; position: absolute; top: -4px; left: 0; border-left: 2.5px solid transparent; border-right: 2.5px solid transparent; border-bottom: 4px solid #000; }
+        .pencil.pale { opacity: 0.15; }
         
-        /* 移動アニメーション用のクローン */
-        .flying-pencil { position: fixed; width: 6px; height: 30px; background: var(--pencil-color); z-index: 1000; transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1); pointer-events: none; }
+        .flying-pencil { position: fixed; width: 5px; height: 25px; background: var(--pencil-color); z-index: 1000; transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1); pointer-events: none; }
 
         /* 操作パネル */
-        .controls { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); text-align: center; width: 400px; }
-        .status-msg { height: 50px; margin-bottom: 15px; font-weight: bold; color: #2d3436; line-height: 1.4; }
-        button { padding: 12px 24px; font-size: 16px; font-weight: bold; cursor: pointer; border: none; border-radius: 8px; transition: 0.2s; background: #0984e3; color: white; }
-        button:hover { background: #74b9ff; transform: translateY(-2px); }
-        button:disabled { background: #b2bec3; cursor: not-allowed; transform: none; }
+        .controls { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); text-align: center; width: 450px; }
+        .status-msg { height: 45px; margin-bottom: 10px; font-weight: bold; color: #2d3436; font-size: 14px; }
+        #main-btn { padding: 10px 20px; font-size: 15px; font-weight: bold; cursor: pointer; border: none; border-radius: 8px; background: var(--accent-blue); color: white; }
+        #main-btn:disabled { background: #ccc; }
         
-        #hand-tray { margin-top: 20px; border: 2px dashed #0984e3; border-radius: 10px; padding: 10px; min-height: 50px; display: flex; flex-direction: column; align-items: center; background: #e1f5fe; }
+        #hand-tray { margin-top: 15px; border: 2px dashed var(--accent-blue); border-radius: 10px; padding: 8px; min-height: 40px; display: flex; flex-direction: column; align-items: center; background: #e1f5fe; }
     </style>
 </head>
 <body>
 
-    <div id="dice-container">?</div>
+    <div class="mode-selector">
+        <button id="mode-random" class="mode-btn active" onclick="switchMode('random')">ランダムモード</button>
+        <button id="mode-table" class="mode-btn" onclick="switchMode('table')">表モード（36パターン）</button>
+    </div>
 
-    <div class="boxes-wrapper" id="boxes-ui">
-        </div>
+    <div id="dice-area">
+        <div id="dice-container">?</div>
+    </div>
+
+    <div id="table-area">
+        <table class="matrix-table">
+            <thead>
+                <tr>
+                    <th rowspan="2">作<br>業<br>A</th><th colspan="6">作業Bに出た目</th>
+                </tr>
+                <tr>
+                    <th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th>
+                </tr>
+            </thead>
+            <tbody id="matrix-body">
+                </tbody>
+        </table>
+        <div style="font-size: 11px; color: #666; margin-top: 5px;">※マスをクリックすると、そのパターンのアニメーションが始まります。</div>
+    </div>
+
+    <div class="boxes-wrapper" id="boxes-ui"></div>
 
     <div class="controls">
-        <div class="status-msg" id="status">「作業Aを開始」を押してください</div>
-        <button id="main-btn" onclick="handleFlow()">作業Aを開始（さいころを振る）</button>
+        <div class="status-msg" id="status">モードを選んで開始してください</div>
+        <button id="main-btn" onclick="handleRandomFlow()">さいころを振る</button>
         
         <div id="hand-tray">
-            <div style="font-size: 12px; color: #0984e3; margin-bottom: 5px;">【取り出した鉛筆（一時保管）】</div>
+            <div style="font-size: 11px; color: var(--accent-blue);">【一時保管】</div>
             <div class="pencil-container" id="tray-pencils"></div>
-            <div id="tray-count" style="font-weight: bold;">0本</div>
+            <div id="tray-count" style="font-weight: bold; font-size: 14px;">0本</div>
         </div>
         
-        <button id="reset-btn" onclick="resetGame()" style="margin-top: 15px; background: #636e72; font-size: 12px; padding: 5px 10px;">リセット</button>
+        <button onclick="resetGame()" style="margin-top: 10px; background: none; border: none; color: #666; text-decoration: underline; cursor: pointer; font-size: 12px;">最初からやり直す</button>
     </div>
 
     <script>
         let pencilCounts = [1, 2, 3, 4, 5, 6];
         let handCount = 0;
-        let step = 'A_START'; // A_START, A_DICE, A_MOVE, B_START, B_DICE, B_MOVE, END
+        let isAnimating = false;
+        let currentMode = 'random';
+        let randomStep = 'A_START'; // A_START, B_START
 
-        const diceEl = document.getElementById('dice-container');
-        const statusEl = document.getElementById('status');
-        const mainBtn = document.getElementById('main-btn');
-        const trayPencils = document.getElementById('tray-pencils');
-        const trayCountEl = document.getElementById('tray-count');
+        function switchMode(mode) {
+            if (isAnimating) return;
+            currentMode = mode;
+            document.getElementById('mode-random').classList.toggle('active', mode === 'random');
+            document.getElementById('mode-table').classList.toggle('active', mode === 'table');
+            document.getElementById('dice-area').style.display = (mode === 'random') ? 'flex' : 'none';
+            document.getElementById('table-area').style.display = (mode === 'table') ? 'block' : 'none';
+            document.getElementById('main-btn').style.display = (mode === 'random') ? 'inline-block' : 'none';
+            resetGame();
+        }
 
-        function initBoxes() {
+        function initUI() {
             const wrapper = document.getElementById('boxes-ui');
             wrapper.innerHTML = '';
             pencilCounts.forEach((count, i) => {
                 const box = document.createElement('div');
                 box.className = 'box';
                 box.id = `box-${i+1}`;
-                box.innerHTML = `
-                    <div class="box-label">箱 ${i+1}</div>
-                    <div class="pencil-container" id="pencils-${i+1}"></div>
-                    <div class="count-display" id="count-${i+1}">${count}本</div>
-                `;
+                box.innerHTML = `<div class="box-label">箱 ${i+1}</div><div class="pencil-container" id="pencils-${i+1}"></div><div class="count-display" id="count-${i+1}">${count}本</div>`;
                 wrapper.appendChild(box);
-                updatePencilIcons(i+1, count);
+                updatePencils(i+1, count);
             });
+
+            const matrixBody = document.getElementById('matrix-body');
+            matrixBody.innerHTML = '';
+            for(let a=1; a<=6; a++) {
+                let row = `<tr><th>${a}</th>`;
+                for(let b=1; b<=6; b++) {
+                    row += `<td><button class="cell-btn" onclick="handleTableClick(${a}, ${b})">${a},${b}</button></td>`;
+                }
+                row += `</tr>`;
+                matrixBody.innerHTML += row;
+            }
         }
 
-        function updatePencilIcons(boxNum, count, isPale = false) {
+        function updatePencils(boxNum, count, isPale = false) {
             const container = document.getElementById(`pencils-${boxNum}`);
             container.innerHTML = '';
             for(let i=0; i<count; i++) {
@@ -100,135 +149,162 @@
             }
         }
 
-        async function rollDice() {
-            mainBtn.disabled = true;
-            let finalVal = Math.floor(Math.random() * 6) + 1;
-            // シャッフルアニメーション (1秒)
-            const startTime = Date.now();
-            while (Date.now() - startTime < 1000) {
-                diceEl.innerText = Math.floor(Math.random() * 6) + 1;
-                await new Promise(r => setTimeout(r, 80));
-            }
-            diceEl.innerText = finalVal;
-            return finalVal;
-        }
-
-        async function handleFlow() {
-            if (step === 'A_START') {
-                // --- 作業A: さいころを振る ---
-                statusEl.innerText = "さいころを振っています...";
-                let roll = await rollDice();
-                step = 'A_MOVE';
-                statusEl.innerText = `作業A：【${roll}】が出ました！\n箱${roll}を空にします。`;
-                
-                // ハイライト
-                const box = document.getElementById(`box-${roll}`);
-                box.classList.add('highlight');
-                await new Promise(r => setTimeout(r, 1000));
-                
-                // 鉛筆が薄くなる
-                updatePencilIcons(roll, pencilCounts[roll-1], true);
-                await new Promise(r => setTimeout(r, 500));
-                
-                // 移動アニメーション
-                await animatePencils(`pencils-${roll}`, 'tray-pencils', pencilCounts[roll-1]);
-                
-                handCount = pencilCounts[roll-1];
-                pencilCounts[roll-1] = 0;
-                document.getElementById(`count-${roll}`).innerText = "0本";
-                updatePencilIcons(roll, 0);
-                
-                // 手元の表示更新
-                trayCountEl.innerText = handCount + "本";
-                for(let i=0; i<handCount; i++) {
-                    const p = document.createElement('div');
-                    p.className = 'pencil';
-                    trayPencils.appendChild(p);
-                }
-                
-                box.classList.remove('highlight');
-                step = 'B_START';
-                mainBtn.disabled = false;
-                mainBtn.innerText = "作業Bを開始（さいころを振る）";
-                statusEl.innerText = "次に、作業Bのさいころを振ってください。";
-
-            } else if (step === 'B_START') {
-                // --- 作業B: さいころを振る ---
-                statusEl.innerText = "さいころを振っています...";
-                let roll = await rollDice();
-                step = 'B_MOVE';
-                statusEl.innerText = `作業B：【${roll}】が出ました！\n箱${roll}に ${handCount}本入れます。`;
-                
-                // ハイライト
-                const box = document.getElementById(`box-${roll}`);
-                box.classList.add('highlight');
-                await new Promise(r => setTimeout(r, 1000));
-                
-                // 移動アニメーション（手元から箱へ）
-                await animatePencils('tray-pencils', `pencils-${roll}`, handCount);
-                
-                trayPencils.innerHTML = '';
-                trayCountEl.innerText = "0本";
-                
-                pencilCounts[roll-1] += handCount;
-                handCount = 0;
-                
-                document.getElementById(`count-${roll}`).innerText = pencilCounts[roll-1] + "本";
-                updatePencilIcons(roll, pencilCounts[roll-1]);
-                
-                box.classList.remove('highlight');
-                step = 'END';
-                mainBtn.disabled = true;
-                mainBtn.innerText = "終了";
-                statusEl.innerText = "作業Bが終了しました！\n結果を確認して解いてみましょう。";
-            }
-        }
-
-        async function animatePencils(fromId, toId, count) {
-            if (count === 0) return;
+        async function animateMove(fromId, toId, count) {
             const fromEl = document.getElementById(fromId);
             const toEl = document.getElementById(toId);
             const fromRect = fromEl.getBoundingClientRect();
             const toRect = toEl.getBoundingClientRect();
-
             const promises = [];
             for (let i = 0; i < count; i++) {
                 const p = document.createElement('div');
                 p.className = 'flying-pencil';
-                p.style.left = (fromRect.left + 10) + 'px';
-                p.style.top = (fromRect.top + 10) + 'px';
+                p.style.left = fromRect.left + 'px'; p.style.top = fromRect.top + 'px';
                 document.body.appendChild(p);
-                
-                // 微妙にタイミングをずらす
-                await new Promise(r => setTimeout(r, 100));
-                
-                p.style.left = (toRect.left + 10) + 'px';
-                p.style.top = (toRect.top + 10) + 'px';
-                
-                promises.push(new Promise(r => {
-                    p.addEventListener('transitionend', () => {
-                        p.remove();
-                        r();
-                    });
-                }));
+                await new Promise(r => setTimeout(r, 60));
+                p.style.left = toRect.left + 'px'; p.style.top = toRect.top + 'px';
+                promises.push(new Promise(r => { p.addEventListener('transitionend', () => { p.remove(); r(); }); }));
             }
             await Promise.all(promises);
         }
 
-        function resetGame() {
-            pencilCounts = [1, 2, 3, 4, 5, 6];
+        async function runFullSequence(a, b) {
+            if (isAnimating) return;
+            isAnimating = true;
+            resetPencilData(); // 一旦リセットして初期状態から見せる
+            
+            const status = document.getElementById('status');
+            
+            // --- 作業A ---
+            status.innerText = `作業A：【${a}】の箱をハイライトします`;
+            const boxA = document.getElementById(`box-${a}`);
+            boxA.classList.add('highlight');
+            await new Promise(r => setTimeout(r, 1000));
+            
+            updatePencils(a, pencilCounts[a-1], true); // 薄くする
+            await new Promise(r => setTimeout(r, 400));
+            
+            await animateMove(`pencils-${a}`, 'tray-pencils', pencilCounts[a-1]);
+            handCount = pencilCounts[a-1];
+            pencilCounts[a-1] = 0;
+            document.getElementById(`count-${a}`).innerText = "0本";
+            updatePencils(a, 0);
+            updateTrayUI();
+            boxA.classList.remove('highlight');
+            
+            await new Promise(r => setTimeout(r, 800));
+
+            // --- 作業B ---
+            status.innerText = `作業B：【${b}】の箱に入れます`;
+            const boxB = document.getElementById(`box-${b}`);
+            boxB.classList.add('highlight');
+            await new Promise(r => setTimeout(r, 1000));
+            
+            await animateMove('tray-pencils', `pencils-${b}`, handCount);
+            pencilCounts[b-1] += handCount;
             handCount = 0;
-            step = 'A_START';
-            diceEl.innerText = '?';
-            statusEl.innerText = "「作業Aを開始」を押してください";
-            mainBtn.innerText = "作業Aを開始（さいころを振る）";
-            mainBtn.disabled = false;
-            trayPencils.innerHTML = '';
-            trayCountEl.innerText = "0本";
-            initBoxes();
+            updateTrayUI();
+            document.getElementById(`count-${b}`).innerText = pencilCounts[b-1] + "本";
+            updatePencils(b, pencilCounts[b-1]);
+            boxB.classList.remove('highlight');
+            
+            status.innerText = `完了！ 結果：A=${a}, B=${b}`;
+            isAnimating = false;
         }
 
-        initBoxes();
+        async function handleRandomFlow() {
+            if (isAnimating) return;
+            const btn = document.getElementById('main-btn');
+            const dice = document.getElementById('dice-container');
+            btn.disabled = true;
+
+            // さいころアニメ
+            let roll = 0;
+            for(let i=0; i<10; i++) {
+                roll = Math.floor(Math.random() * 6) + 1;
+                dice.innerText = roll;
+                await new Promise(r => setTimeout(r, 80));
+            }
+
+            if (randomStep === 'A_START') {
+                await runSequencePartA(roll);
+                randomStep = 'B_START';
+                btn.innerText = "作業Bのさいころを振る";
+                btn.disabled = false;
+            } else {
+                await runSequencePartB(roll);
+                randomStep = 'A_START';
+                btn.innerText = "作業Aのさいころを振る（最初から）";
+                btn.disabled = false;
+            }
+        }
+
+        async function runSequencePartA(a) {
+            isAnimating = true;
+            const status = document.getElementById('status');
+            status.innerText = `作業A：【${a}】が出ました`;
+            const boxA = document.getElementById(`box-${a}`);
+            boxA.classList.add('highlight');
+            await new Promise(r => setTimeout(r, 800));
+            updatePencils(a, pencilCounts[a-1], true);
+            await animateMove(`pencils-${a}`, 'tray-pencils', pencilCounts[a-1]);
+            handCount = pencilCounts[a-1];
+            pencilCounts[a-1] = 0;
+            document.getElementById(`count-${a}`).innerText = "0本";
+            updatePencils(a, 0);
+            updateTrayUI();
+            boxA.classList.remove('highlight');
+            isAnimating = false;
+        }
+
+        async function runSequencePartB(b) {
+            isAnimating = true;
+            const status = document.getElementById('status');
+            status.innerText = `作業B：【${b}】が出ました`;
+            const boxB = document.getElementById(`box-${b}`);
+            boxB.classList.add('highlight');
+            await new Promise(r => setTimeout(r, 800));
+            await animateMove('tray-pencils', `pencils-${b}`, handCount);
+            pencilCounts[b-1] += handCount;
+            handCount = 0;
+            updateTrayUI();
+            document.getElementById(`count-${b}`).innerText = pencilCounts[b-1] + "本";
+            updatePencils(b, pencilCounts[b-1]);
+            boxB.classList.remove('highlight');
+            isAnimating = false;
+        }
+
+        function handleTableClick(a, b) {
+            runFullSequence(a, b);
+        }
+
+        function updateTrayUI() {
+            const tray = document.getElementById('tray-pencils');
+            tray.innerHTML = '';
+            for(let i=0; i<handCount; i++) {
+                const p = document.createElement('div');
+                p.className = 'pencil';
+                tray.appendChild(p);
+            }
+            document.getElementById('tray-count').innerText = handCount + "本";
+        }
+
+        function resetPencilData() {
+            pencilCounts = [1, 2, 3, 4, 5, 6];
+            handCount = 0;
+            initUI();
+            updateTrayUI();
+        }
+
+        function resetGame() {
+            if (isAnimating) return;
+            randomStep = 'A_START';
+            document.getElementById('main-btn').innerText = "さいころを振る";
+            document.getElementById('status').innerText = "開始してください";
+            document.getElementById('dice-container').innerText = "?";
+            resetPencilData();
+        }
+
+        initUI();
     </script>
 </body>
 </html>
