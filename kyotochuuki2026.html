@@ -2,210 +2,364 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>くじ引き確率シミュレーション</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>くじ引き確率収束シミュレーション</title>
   <style>
+    * { box-sizing: border-box; }
     body {
-      font-family: "Helvetica Neue", Arial, sans-serif;
-      max-width: 700px;
-      margin: 40px auto;
-      padding: 0 20px;
-      background: #f8f9fa;
+      font-family: "Helvetica Neue", "Hiragino Sans", sans-serif;
+      background: #f0f2f5;
       color: #333;
-      line-height: 1.6;
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .container {
+      max-width: 900px;
+      width: 100%;
     }
     h1 {
-      font-size: 1.4rem;
-      border-bottom: 2px solid #4a90d9;
-      padding-bottom: 10px;
+      font-size: 1.5rem;
+      text-align: center;
+      margin-bottom: 16px;
+      color: #2c3e50;
     }
-    .card {
+    .controls {
       background: #fff;
-      border-radius: 8px;
-      padding: 20px;
-      margin-bottom: 20px;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.08);
+      border-radius: 10px;
+      padding: 16px 22px;
+      margin-bottom: 16px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      align-items: center;
+      justify-content: center;
     }
-    label {
-      font-weight: bold;
-      margin-right: 8px;
+    .control-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
-    select, button {
-      font-size: 1rem;
-      padding: 8px 14px;
-      border-radius: 4px;
+    label { font-weight: 600; font-size: 0.9rem; color: #555; }
+    select, input[type="range"] {
+      font-size: 0.95rem;
+      padding: 6px 10px;
+      border-radius: 6px;
       border: 1px solid #ccc;
     }
     button {
-      background: #4a90d9;
-      color: #fff;
-      border: none;
-      cursor: pointer;
-      margin-left: 10px;
-      transition: background 0.2s;
-    }
-    button:hover {
-      background: #357abd;
-    }
-    .result-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 15px;
-      margin-top: 15px;
-    }
-    .result-box {
-      background: #eef5fc;
-      border-radius: 6px;
-      padding: 15px;
-      text-align: center;
-    }
-    .result-box h3 {
-      margin: 0 0 8px;
       font-size: 0.95rem;
-      color: #2c5aa0;
+      padding: 8px 20px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: transform 0.1s, opacity 0.2s;
     }
-    .big-number {
-      font-size: 1.8rem;
-      font-weight: bold;
-      color: #222;
+    button:active { transform: scale(0.96); }
+    .btn-start { background: #27ae60; color: #fff; }
+    .btn-start:hover { background: #219150; }
+    .btn-reset { background: #e74c3c; color: #fff; }
+    .btn-reset:hover { background: #c0392b; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .canvas-wrap {
+      background: #fff;
+      border-radius: 10px;
+      padding: 16px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      position: relative;
     }
-    .percent {
-      font-size: 1.1rem;
-      color: #555;
-      margin-top: 4px;
+    canvas {
+      display: block;
+      width: 100%;
+      height: auto;
+      border-radius: 6px;
+      background: #fafbfc;
     }
-    .answer-box {
-      background: #fff8e1;
-      border-left: 4px solid #ffc107;
-      padding: 15px;
-      margin-top: 15px;
-      border-radius: 0 6px 6px 0;
+    .legend {
+      display: flex;
+      justify-content: center;
+      gap: 24px;
+      margin-top: 12px;
+      font-size: 0.9rem;
     }
-    .highlight {
-      color: #d32f2f;
-      font-weight: bold;
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
     }
-    .log {
-      margin-top: 15px;
-      max-height: 200px;
-      overflow-y: auto;
-      background: #f1f3f4;
-      padding: 10px;
-      border-radius: 4px;
-      font-family: monospace;
-      font-size: 0.85rem;
+    .dot { width: 14px; height: 14px; border-radius: 50%; display: inline-block; }
+    .dot-a { background: #e74c3c; }
+    .dot-b { background: #3498db; }
+    .dot-theory { background: #95a5a6; }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-top: 16px;
     }
-    .theory {
-      color: #2e7d32;
-      font-weight: bold;
+    .stat-box {
+      background: #f8f9fa;
+      border-radius: 8px;
+      padding: 14px;
+      text-align: center;
+      border-top: 3px solid #ddd;
     }
+    .stat-box.a { border-color: #e74c3c; }
+    .stat-box.b { border-color: #3498db; }
+    .stat-box.theory { border-color: #95a5a6; }
+    .stat-label { font-size: 0.8rem; color: #777; margin-bottom: 4px; }
+    .stat-value { font-size: 1.4rem; font-weight: 700; color: #2c3e50; }
+    .stat-sub { font-size: 0.8rem; color: #999; margin-top: 2px; }
+
+    .speed-val { min-width: 40px; text-align: center; font-weight: 700; color: #27ae60; }
   </style>
 </head>
 <body>
 
-  <h1>🎫 くじ引き確率シミュレーション</h1>
+<div class="container">
+  <h1>🎫 くじ引き確率 収束アニメーション</h1>
 
-  <div class="card">
-    <p>
-      あたりくじが<strong>1本</strong>、はずれくじが<strong>5本</strong>の合計<strong>6本</strong>のくじがある。<br>
-      Aさんが1本引き（<strong>戻さない</strong>）、その後Bさんが1本引く。
-    </p>
-    <p>
-      <strong>問1:</strong> Bさんがあたりくじを引く確率は？<br>
-      <strong>問2:</strong> AさんとBさんのあたりくじを引く確率の大小関係は？
-      <span style="color:#666;font-size:0.9rem;">（ア）A＞B　（イ）A＜B　（ウ）A＝B</span>
-    </p>
+  <div class="controls">
+    <div class="control-group">
+      <label for="trials">試行回数</label>
+      <select id="trials">
+        <option value="100">100回</option>
+        <option value="1000">1,000回</option>
+        <option value="10000">10,000回</option>
+        <option value="30000">30,000回</option>
+        <option value="100000">100,000回</option>
+        <option value="300000">300,000回</option>
+        <option value="1000000">1,000,000回</option>
+      </select>
+    </div>
+    <div class="control-group">
+      <label for="speed">描画速度</label>
+      <input type="range" id="speed" min="1" max="100" value="10">
+      <span class="speed-val" id="speedVal">10x</span>
+    </div>
+    <button class="btn-start" id="btnStart" onclick="startSim()">▶ 開始</button>
+    <button class="btn-reset" onclick="resetSim()">↺ リセット</button>
   </div>
 
-  <div class="card">
-    <label for="trials">試行回数:</label>
-    <select id="trials">
-      <option value="10">10回</option>
-      <option value="100" selected>100回</option>
-      <option value="500">500回</option>
-      <option value="1000">1,000回</option>
-      <option value="5000">5,000回</option>
-      <option value="10000">10,000回</option>
-      <option value="100000">100,000回</option>
-    </select>
-    <button onclick="runSimulation()">シミュレーション実行</button>
-    <button onclick="toggleLog()" style="background:#6c757d;">詳細ログ ON/OFF</button>
-
-    <div class="result-grid">
-      <div class="result-box">
-        <h3>Aさんのあたり回数</h3>
-        <div class="big-number" id="a-count">-</div>
-        <div class="percent" id="a-rate">-</div>
-      </div>
-      <div class="result-box">
-        <h3>Bさんのあたり回数</h3>
-        <div class="big-number" id="b-count">-</div>
-        <div class="percent" id="b-rate">-</div>
-      </div>
+  <div class="canvas-wrap">
+    <canvas id="graph" width="860" height="420"></canvas>
+    <div class="legend">
+      <div class="legend-item"><span class="dot dot-a"></span> Aさんの相対度数</div>
+      <div class="legend-item"><span class="dot dot-b"></span> Bさんの相対度数</div>
+      <div class="legend-item"><span class="dot dot-theory"></span> 理論値 1/6 ≈ 16.67%</div>
     </div>
-
-    <div class="answer-box">
-      <strong>理論値:</strong> Aさん＝Bさん＝<span class="theory">1/6 ≈ 16.67%</span><br>
-      <span style="font-size:0.9rem;color:#555;">
-        （Aが先に引いても、Bの確率は変わらず等しい → 正解は<span class="highlight">（ウ）</span>）
-      </span>
-    </div>
-
-    <div class="log" id="log" style="display:none;"></div>
   </div>
 
-  <script>
-    let showLog = false;
+  <div class="stats">
+    <div class="stat-box a">
+      <div class="stat-label">Aさんの確率（現在）</div>
+      <div class="stat-value" id="statA">-</div>
+      <div class="stat-sub" id="countA">-</div>
+    </div>
+    <div class="stat-box b">
+      <div class="stat-label">Bさんの確率（現在）</div>
+      <div class="stat-value" id="statB">-</div>
+      <div class="stat-sub" id="countB">-</div>
+    </div>
+    <div class="stat-box theory">
+      <div class="stat-label">理論値</div>
+      <div class="stat-value">16.67%</div>
+      <div class="stat-sub">1/6</div>
+    </div>
+  </div>
+</div>
 
-    function toggleLog() {
-      showLog = !showLog;
-      document.getElementById('log').style.display = showLog ? 'block' : 'none';
+<script>
+const canvas = document.getElementById('graph');
+const ctx = canvas.getContext('2d');
+const speedSlider = document.getElementById('speed');
+const speedVal = document.getElementById('speedVal');
+
+let animId = null;
+let dataA = [];
+let dataB = [];
+let current = 0;
+let total = 100;
+let running = false;
+
+const MARGIN = { top: 30, right: 40, bottom: 50, left: 60 };
+const WIDTH = canvas.width - MARGIN.left - MARGIN.right;
+const HEIGHT = canvas.height - MARGIN.top - MARGIN.bottom;
+const THEORY = 1/6;
+
+speedSlider.addEventListener('input', () => {
+  speedVal.textContent = speedSlider.value + 'x';
+});
+
+function resetSim() {
+  if (animId) cancelAnimationFrame(animId);
+  running = false;
+  current = 0;
+  dataA = [];
+  dataB = [];
+  document.getElementById('btnStart').disabled = false;
+  document.getElementById('statA').textContent = '-';
+  document.getElementById('statB').textContent = '-';
+  document.getElementById('countA').textContent = '-';
+  document.getElementById('countB').textContent = '-';
+  drawBase();
+}
+
+function drawBase() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  
+  ctx.strokeStyle = '#e9ecef';
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 5; i++) {
+    const y = MARGIN.top + (HEIGHT / 5) * i;
+    ctx.beginPath(); ctx.moveTo(MARGIN.left, y); ctx.lineTo(MARGIN.left + WIDTH, y); ctx.stroke();
+  }
+  for (let i = 0; i <= 10; i++) {
+    const x = MARGIN.left + (WIDTH / 10) * i;
+    ctx.beginPath(); ctx.moveTo(x, MARGIN.top); ctx.lineTo(x, MARGIN.top + HEIGHT); ctx.stroke();
+  }
+
+  ctx.strokeStyle = '#555';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(MARGIN.left, MARGIN.top);
+  ctx.lineTo(MARGIN.left, MARGIN.top + HEIGHT);
+  ctx.lineTo(MARGIN.left + WIDTH, MARGIN.top + HEIGHT);
+  ctx.stroke();
+
+  ctx.fillStyle = '#666';
+  ctx.font = '12px sans-serif';
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'middle';
+  const yMax = 0.35;
+  for (let i = 0; i <= 7; i++) {
+    const val = (yMax / 7) * i;
+    const y = MARGIN.top + HEIGHT - (val / yMax) * HEIGHT;
+    ctx.fillText((val * 100).toFixed(0) + '%', MARGIN.left - 10, y);
+  }
+
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  const xMax = total;
+  for (let i = 0; i <= 5; i++) {
+    const val = Math.round((xMax / 5) * i);
+    const x = MARGIN.left + (val / xMax) * WIDTH;
+    ctx.fillText(val.toLocaleString(), x, MARGIN.top + HEIGHT + 10);
+  }
+  ctx.fillText('試行回数', MARGIN.left + WIDTH / 2, MARGIN.top + HEIGHT + 32);
+
+  const theoryY = MARGIN.top + HEIGHT - (THEORY / yMax) * HEIGHT;
+  ctx.strokeStyle = '#95a5a6';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([8, 6]);
+  ctx.beginPath(); ctx.moveTo(MARGIN.left, theoryY); ctx.lineTo(MARGIN.left + WIDTH, theoryY); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#95a5a6';
+  ctx.textAlign = 'left';
+  ctx.fillText('理論値 1/6', MARGIN.left + WIDTH + 8, theoryY);
+
+  ctx.save();
+  ctx.translate(18, MARGIN.top + HEIGHT / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#555';
+  ctx.fillText('相対度数（あたり確率）', 0, 0);
+  ctx.restore();
+}
+
+function drawLines(upTo) {
+  drawBase();
+  if (upTo < 1) return;
+
+  const yMax = 0.35;
+
+  function drawSeries(data, color) {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    for (let i = 0; i < upTo; i++) {
+      const x = MARGIN.left + ((i + 1) / total) * WIDTH;
+      const y = MARGIN.top + HEIGHT - (data[i] / yMax) * HEIGHT;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
     }
+    ctx.stroke();
 
-    function runSimulation() {
-      const n = parseInt(document.getElementById('trials').value);
-      let aWin = 0, bWin = 0;
-      const logDiv = document.getElementById('log');
-      logDiv.innerHTML = '';
+    const lastX = MARGIN.left + (upTo / total) * WIDTH;
+    const lastY = MARGIN.top + HEIGHT - (data[upTo - 1] / yMax) * HEIGHT;
+    ctx.fillStyle = color;
+    ctx.beginPath(); ctx.arc(lastX, lastY, 4, 0, Math.PI * 2); ctx.fill();
+  }
 
-      // くじの準備: [1, 0, 0, 0, 0, 0] （1があたり、0がはずれ）
-      const tickets = [1, 0, 0, 0, 0, 0];
+  drawSeries(dataA, '#e74c3c');
+  drawSeries(dataB, '#3498db');
+}
 
-      for (let i = 1; i <= n; i++) {
-        // 毎回同じ箱から引くイメージで、配列をコピーしてシャッフル
-        const box = [...tickets];
-        
-        // Fisher-Yatesシャッフル
-        for (let j = box.length - 1; j > 0; j--) {
-          const k = Math.floor(Math.random() * (j + 1));
-          [box[j], box[k]] = [box[k], box[j]];
-        }
+function updateStats() {
+  const aWin = Math.round(dataA[current - 1] * current);
+  const bWin = Math.round(dataB[current - 1] * current);
+  document.getElementById('statA').textContent = (dataA[current - 1] * 100).toFixed(2) + '%';
+  document.getElementById('statB').textContent = (dataB[current - 1] * 100).toFixed(2) + '%';
+  document.getElementById('countA').textContent = `${aWin} / ${current}回`;
+  document.getElementById('countB').textContent = `${bWin} / ${current}回`;
+}
 
-        const aDraw = box[0]; // Aさんが1本目を引く
-        const bDraw = box[1]; // Bさんが2本目を引く（戻さないので残りから）
+function simulateStep() {
+  const speed = parseInt(speedSlider.value);
+  const batch = Math.max(1, Math.floor(speed * total / 500));
+  const tickets = [1, 0, 0, 0, 0, 0];
+  let aSum = current > 0 ? dataA[current - 1] * current : 0;
+  let bSum = current > 0 ? dataB[current - 1] * current : 0;
 
-        if (aDraw === 1) aWin++;
-        if (bDraw === 1) bWin++;
-
-        if (showLog && i <= 200) { // ログ表示は最大200回まで
-          const statusA = aDraw ? 'あたり' : 'はずれ';
-          const statusB = bDraw ? 'あたり' : 'はずれ';
-          logDiv.innerHTML += `第${i}回: A=${statusA}, B=${statusB}<br>`;
-        }
-      }
-
-      if (showLog && n > 200) {
-        logDiv.innerHTML += `... (${n}回中 最初の200回を表示)`;
-      }
-
-      document.getElementById('a-count').textContent = aWin + '回';
-      document.getElementById('a-rate').textContent = ((aWin / n) * 100).toFixed(2) + '%';
-      document.getElementById('b-count').textContent = bWin + '回';
-      document.getElementById('b-rate').textContent = ((bWin / n) * 100).toFixed(2) + '%';
+  for (let k = 0; k < batch && current < total; k++) {
+    for (let i = tickets.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [tickets[i], tickets[j]] = [tickets[j], tickets[i]];
     }
+    aSum += tickets[0];
+    bSum += tickets[1];
+    current++;
+    dataA[current - 1] = aSum / current;
+    dataB[current - 1] = bSum / current;
+  }
+}
 
-    // 初回自動実行
-    runSimulation();
-  </script>
+function loop() {
+  if (!running) return;
+  simulateStep();
+  drawLines(current);
+  updateStats();
+
+  if (current >= total) {
+    running = false;
+    document.getElementById('btnStart').disabled = false;
+    return;
+  }
+  animId = requestAnimationFrame(loop);
+}
+
+function startSim() {
+  if (running) return;
+  total = parseInt(document.getElementById('trials').value);
+  
+  if (current === 0) {
+    dataA = new Array(total);
+    dataB = new Array(total);
+  }
+  
+  running = true;
+  document.getElementById('btnStart').disabled = true;
+  loop();
+}
+
+resetSim();
+</script>
 
 </body>
 </html>
